@@ -1,0 +1,9 @@
+Options -Indexes
+RewriteEngine On
+
+# 允許直接存取靜態資源
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# 所有請求導向 index.php
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]

@@ -1,46 +1,20 @@
 <?php
-// 可在此加入 session 檢查、CSRF token 產生等邏輯
-$pageTitle = '會員註冊';
-$csrfToken = bin2hex(random_bytes(32)); // 產生 CSRF Token
+$csrfToken = bin2hex(random_bytes(32));
 ?>
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title><?= htmlspecialchars($pageTitle) ?> — 會員管理系統</title>
-  <link rel="stylesheet" href="../css/style.css" />
-</head>
-<body>
-
-<nav class="navbar">
-  <div class="navbar-brand">★ 會員管理系統</div>
-  <div class="navbar-nav">
-    <a href="register.php" class="nav-link active">會員註冊</a>
-    <a href="admin.php" class="nav-link">後台管理</a>
-  </div>
-</nav>
-
 <div class="container">
   <div class="card">
     <div class="form-title">會員註冊</div>
     <div class="form-subtitle">請選擇您的會員類型並填寫以下資料</div>
 
     <div class="type-switch">
-      <button class="type-btn active" id="btn-personal" onclick="switchType('personal')">
-        👤 個人用戶
-      </button>
-      <button class="type-btn" id="btn-company" onclick="switchType('company')">
-        🏢 商業公司
-      </button>
+      <button class="type-btn active" id="btn-personal" onclick="switchType('personal')">👤 個人用戶</button>
+      <button class="type-btn" id="btn-company" onclick="switchType('company')">🏢 商業公司</button>
     </div>
 
     <form id="register-form" novalidate>
-      <!-- CSRF Token -->
       <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>" />
       <input type="hidden" id="member-type" value="personal" />
 
-      <!-- 基本資料 -->
       <div class="section-label">基本資料</div>
       <div class="form-row">
         <div class="form-group">
@@ -126,20 +100,11 @@ $csrfToken = bin2hex(random_bytes(32)); // 產生 CSRF Token
 
       <button type="button" class="btn btn-primary" onclick="submitRegister()">立即註冊</button>
 
-      <div class="alert alert-success" id="alert-success">
-        ✅ 註冊成功！請至信箱收取驗證信，完成帳號啟用。
-      </div>
-      <div class="alert alert-danger" id="alert-error">
-        ❌ <span id="alert-error-msg">發生錯誤，請稍後再試。</span>
-      </div>
+      <div class="alert alert-success" id="alert-success">✅ 註冊成功！請至信箱收取驗證信，完成帳號啟用。</div>
+      <div class="alert alert-danger"  id="alert-error">❌ <span id="alert-error-msg">發生錯誤，請稍後再試。</span></div>
     </form>
   </div>
 </div>
 
-<script>
-  // 將 PHP CSRF Token 傳入 JS
-  const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken) ?>';
-</script>
-<script src="../js/register.js"></script>
-</body>
-</html>
+<script>const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken) ?>';</script>
+<script src="/assets/js/register.js"></script>
