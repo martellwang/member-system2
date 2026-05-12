@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>會員註冊 — 會員管理系統</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-brand">
+    ★ 會員管理系統
+  </div>
+  <div class="navbar-nav">
+    <a href="register.html" class="nav-link active">會員註冊</a>
+    <a href="admin.html" class="nav-link">後台管理</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="card">
+    <div class="form-title">會員註冊</div>
+    <div class="form-subtitle">請選擇您的會員類型並填寫以下資料</div>
+
+    <div class="type-switch">
+      <button class="type-btn active" id="btn-personal" onclick="switchType('personal')">
+        👤 個人用戶
+      </button>
+      <button class="type-btn" id="btn-company" onclick="switchType('company')">
+        🏢 商業公司
+      </button>
+    </div>
+
+    <form id="register-form" novalidate>
+      <input type="hidden" id="member-type" value="personal" />
+
+      <!-- 基本資料 -->
+      <div class="section-label">基本資料</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>姓名 <span class="required">*</span></label>
+          <input type="text" id="f-name" placeholder="請輸入姓名" />
+          <div class="error-msg" id="err-name">請輸入姓名</div>
+        </div>
+        <div class="form-group">
+          <label>電子郵件 <span class="required">*</span></label>
+          <input type="email" id="f-email" placeholder="example@mail.com" />
+          <div class="error-msg" id="err-email">請輸入有效的電子郵件</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>電話號碼</label>
+          <input type="tel" id="f-phone" placeholder="0912-345-678" />
+        </div>
+        <div class="form-group">
+          <label>密碼 <span class="required">*</span></label>
+          <input type="password" id="f-pass" placeholder="至少 8 位字元" />
+          <div class="error-msg" id="err-pass">密碼至少需要 8 位字元</div>
+        </div>
+      </div>
+
+      <!-- 個人欄位 -->
+      <div id="personal-fields">
+        <div class="section-label">個人身份資料</div>
+        <div class="form-group">
+          <label>身分證號 <span class="required">*</span></label>
+          <input type="text" id="f-idno" placeholder="A123456789" maxlength="10" style="text-transform:uppercase" />
+          <div class="error-msg" id="err-idno">請輸入有效的身分證號（如：A123456789）</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>出生日期</label>
+            <input type="date" id="f-birth" />
+          </div>
+          <div class="form-group">
+            <label>性別</label>
+            <select id="f-gender">
+              <option value="">請選擇</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+              <option value="other">不公開</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 公司欄位 -->
+      <div id="company-fields" style="display:none;">
+        <div class="section-label">公司資料</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>統一編號 <span class="required">*</span></label>
+            <input type="text" id="f-taxid" placeholder="12345678" maxlength="8" />
+            <div class="error-msg" id="err-taxid">統一編號為 8 碼數字</div>
+          </div>
+          <div class="form-group">
+            <label>公司名稱 <span class="required">*</span></label>
+            <input type="text" id="f-company" placeholder="○○股份有限公司" />
+            <div class="error-msg" id="err-company">請輸入公司名稱</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>公司網站網址</label>
+          <input type="url" id="f-website" placeholder="https://www.example.com" />
+        </div>
+        <div class="form-group">
+          <label>產業類別</label>
+          <select id="f-industry">
+            <option value="">請選擇</option>
+            <option value="tech">科技業</option>
+            <option value="mfg">製造業</option>
+            <option value="svc">服務業</option>
+            <option value="retail">零售業</option>
+            <option value="fin">金融業</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary" onclick="submitRegister()">立即註冊</button>
+
+      <div class="alert alert-success" id="alert-success">
+        ✅ 註冊成功！請至信箱收取驗證信，完成帳號啟用。
+      </div>
+      <div class="alert alert-danger" id="alert-error">
+        ❌ <span id="alert-error-msg">發生錯誤，請稍後再試。</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../js/register.js"></script>
+</body>
+</html>
