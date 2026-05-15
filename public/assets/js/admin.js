@@ -1,5 +1,10 @@
 // admin.js — 後台管理前端邏輯
-const API = 'http://localhost:8000/api';
+const BASE_PATH = (() => {
+  const marker = '/public';
+  const index = window.location.pathname.indexOf(marker);
+  return index >= 0 ? window.location.pathname.slice(0, index + marker.length) : '';
+})();
+const API = `${BASE_PATH}/api`;
 const PER_PAGE = 10;
 let allMembers = [];
 let filtered   = [];
