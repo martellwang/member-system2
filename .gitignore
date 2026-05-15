@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 *.log
 .env
+database/local-*.sql
+database/real-*.sql
+database/*real*.sql
