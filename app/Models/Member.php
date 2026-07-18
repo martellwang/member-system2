@@ -15,9 +15,9 @@ class Member extends Model
         $params = [];
 
         if ($keyword) {
-            $sql .= " AND (`member_code` LIKE ? OR `name` LIKE ? OR `email` LIKE ? OR `id_number` LIKE ? OR `line_id` LIKE ? OR `tax_id` LIKE ? OR `company_name` LIKE ?)";
+            $sql .= " AND (`member_code` LIKE ? OR `name` LIKE ? OR `email` LIKE ? OR `id_number` LIKE ? OR `line_id` LIKE ? OR `tax_id` LIKE ? OR `company_name` LIKE ? OR `contact_city` LIKE ? OR `contact_district` LIKE ? OR `contact_address_line` LIKE ? OR `contact_address` LIKE ?)";
             $kw = "%{$keyword}%";
-            array_push($params, $kw, $kw, $kw, $kw, $kw, $kw, $kw);
+            array_push($params, $kw, $kw, $kw, $kw, $kw, $kw, $kw, $kw, $kw, $kw, $kw);
         }
         if ($type)   { $sql .= " AND `type` = ?";   $params[] = $type; }
         if ($status) { $sql .= " AND `status` = ?"; $params[] = $status; }

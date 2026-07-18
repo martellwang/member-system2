@@ -36,6 +36,15 @@ $decodeJsonList = static function ($value): array {
   return is_array($decoded) ? $decoded : [];
 };
 $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡）', '銀聯卡', '分期付款', 'Apple Pay', 'Google Pay', 'Samsung Pay', '超商代碼', 'ATM 轉帳', 'icash Pay', 'LINE Pay', '街口支付', 'AFTEE'];
+$contactCity = (string) ($member['contact_city'] ?? '');
+$contactDistrict = (string) ($member['contact_district'] ?? '');
+$contactAddressLine = (string) ($member['contact_address_line'] ?? '');
+if ($contactAddressLine === '' && !empty($member['contact_address'])) {
+  $legacyAddressParts = \Support\TaiwanAddress::split((string) $member['contact_address']);
+  $contactCity = $contactCity !== '' ? $contactCity : $legacyAddressParts['city'];
+  $contactDistrict = $contactDistrict !== '' ? $contactDistrict : $legacyAddressParts['district'];
+  $contactAddressLine = $legacyAddressParts['address_line'];
+}
 ?>
 
 <div class="container edit-container">
@@ -55,13 +64,8 @@ $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡�
             <section class="admin-store-readonly-item">
               <div class="admin-store-readonly-head">
                 <strong><?= htmlspecialchars($store['store_name'] ?? '未命名商店', ENT_QUOTES) ?></strong>
-                <span class="badge <?= htmlspecialchars($storeStatus['class'], ENT_QUOTES) ?>"><?= htmlspecialchars($storeStatus['label'], ENT_QUOTES) ?></span>
               </div>
               <dl>
-                <div>
-                  <dt>商店代號</dt>
-                  <dd><?= htmlspecialchars($storeCode($store), ENT_QUOTES) ?></dd>
-                </div>
                 <div>
                   <dt>商店類型</dt>
                   <dd><?= htmlspecialchars($storeTypeLabel($store), ENT_QUOTES) ?></dd>
@@ -108,6 +112,11 @@ $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡�
       <?= htmlspecialchars($statusMeta['label']) ?>
     </span>
   </div>
+
+  <nav class="member-edit-tabs" aria-label="會員編輯功能">
+    <a class="member-edit-tab" href="#member-profile" data-member-edit-tab="profile">會員資料</a>
+    <a class="member-edit-tab" href="#admin-store-management" data-member-edit-tab="stores">商店管理</a>
+  </nav>
 
   <section class="admin-store-management" id="admin-store-management">
     <div class="admin-store-heading">
@@ -277,7 +286,7 @@ $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡�
     <?php endif; ?>
   </section>
 
-  <div class="card">
+  <div class="card member-edit-form-card">
     <form id="member-edit-page-form" novalidate>
       <input type="hidden" id="edit-id" value="<?= htmlspecialchars((string) $member['id']) ?>" />
 
@@ -341,7 +350,11 @@ $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡�
         </div>
         <div class="form-group">
           <label>聯絡地址 <span class="required">*</span></label>
-          <input type="text" id="edit-address" value="<?= htmlspecialchars($member['contact_address'] ?? '') ?>" />
+          <div class="address-input-group">
+            <select id="edit-contact-city" data-selected="<?= htmlspecialchars($contactCity, ENT_QUOTES) ?>" aria-label="縣市"></select>
+            <select id="edit-contact-district" data-selected="<?= htmlspecialchars($contactDistrict, ENT_QUOTES) ?>" aria-label="地區"></select>
+            <input type="text" id="edit-address-line" value="<?= htmlspecialchars($contactAddressLine, ENT_QUOTES) ?>" maxlength="255" />
+          </div>
         </div>
       </div>
 
@@ -523,4 +536,5 @@ $paymentToolOptions = ['一次付清（國內卡）', '一次付清（國外卡�
 </div>
 </div>
 
+<script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/taiwan-address.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/taiwan-address.js') ?>"></script>
 <script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/edit-member.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/edit-member.js') ?>"></script>

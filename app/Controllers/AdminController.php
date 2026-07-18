@@ -6,9 +6,12 @@ use Core\Controller;
 use Core\Mailer;
 use Models\AdminLoginLog;
 use Models\AdminUser;
+use Models\DeviceSupplier;
 use Models\Member;
 use Models\MemberStore;
 use Models\SystemSetting;
+use Models\StoreCodePrefix;
+use Support\TaiwanAddress;
 
 class AdminController extends Controller
 {
@@ -16,7 +19,9 @@ class AdminController extends Controller
     private MemberStore $memberStore;
     private AdminUser $adminUser;
     private AdminLoginLog $adminLoginLog;
+    private DeviceSupplier $deviceSupplier;
     private SystemSetting $settings;
+    private StoreCodePrefix $storeCodePrefix;
 
     public function __construct()
     {
@@ -27,7 +32,9 @@ class AdminController extends Controller
         $this->memberStore = new MemberStore();
         $this->adminUser = new AdminUser();
         $this->adminLoginLog = new AdminLoginLog();
+        $this->deviceSupplier = new DeviceSupplier();
         $this->settings = new SystemSetting();
+        $this->storeCodePrefix = new StoreCodePrefix();
     }
 
     /** GET /admin/login — 顯示登入頁 */
@@ -490,7 +497,199 @@ class AdminController extends Controller
         $this->json($this->adminLoginLog->latestByAdminUser($staffId, 50));
     }
 
+    /** GET /api/admin/device-suppliers */
+    public function deviceSupplierList(): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $this->json($this->deviceSupplier->all('updated_at DESC'));
+    }
+
+    /** POST /api/admin/device-suppliers/create */
+    public function deviceSupplierCreate(): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $data = $this->input();
+        $errors = $this->validateDeviceSupplier($data);
+        if ($errors) {
+            $this->json(['errors' => $errors], 422);
+            return;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $id = $this->deviceSupplier->insert([
+            'company_name' => trim((string) ($data['company_name'] ?? '')),
+            'tax_id' => trim((string) ($data['tax_id'] ?? '')),
+            'company_address' => trim((string) ($data['company_address'] ?? '')),
+            'contact_name' => trim((string) ($data['contact_name'] ?? '')),
+            'contact_phone' => trim((string) ($data['contact_phone'] ?? '')),
+            'up_memo' => $this->sanitizeShortText((string) ($data['up_memo'] ?? '')),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->json(['message' => '設備供應商已建立。', 'id' => $id], 201);
+    }
+
+    /** POST /api/admin/device-suppliers/{id}/update */
+    public function deviceSupplierUpdate(string $id): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $supplierId = (int) $id;
+        if (!$this->deviceSupplier->find($supplierId)) {
+            $this->json(['message' => '找不到設備供應商資料。'], 404);
+            return;
+        }
+
+        $data = $this->input();
+        $errors = $this->validateDeviceSupplier($data);
+        if ($errors) {
+            $this->json(['errors' => $errors], 422);
+            return;
+        }
+
+        $this->deviceSupplier->update($supplierId, [
+            'company_name' => trim((string) ($data['company_name'] ?? '')),
+            'tax_id' => trim((string) ($data['tax_id'] ?? '')),
+            'company_address' => trim((string) ($data['company_address'] ?? '')),
+            'contact_name' => trim((string) ($data['contact_name'] ?? '')),
+            'contact_phone' => trim((string) ($data['contact_phone'] ?? '')),
+            'up_memo' => $this->sanitizeShortText((string) ($data['up_memo'] ?? '')),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->json(['message' => '設備供應商已更新。']);
+    }
+
+    /** GET /api/admin/store-code-prefixes/{memberId} */
+    public function storeCodePrefixShow(string $memberId): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $member = $this->member->find((int) $memberId);
+        if (!$this->isActiveDealerMember($member)) {
+            $this->json(['message' => '找不到可設定前置碼的運作中經銷商會員。'], 404);
+            return;
+        }
+
+        $prefixes = $this->storeCodePrefix->listByMember((int) $memberId);
+        $this->json([
+            'member' => $this->dealerSummary($member),
+            'prefix' => $prefixes[0] ?? null,
+            'prefixes' => $prefixes,
+            'today' => date('Y-m-d'),
+        ]);
+    }
+
+    /** POST /api/admin/store-code-prefixes/{memberId} */
+    public function storeCodePrefixSave(string $memberId): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $member = $this->member->find((int) $memberId);
+        if (!$this->isActiveDealerMember($member)) {
+            $this->json(['message' => '找不到可設定前置碼的運作中經銷商會員。'], 404);
+            return;
+        }
+
+        $validated = $this->validatedStoreCodePrefixInput();
+        if ($validated === false) {
+            return;
+        }
+        [$prefix, $remark] = $validated;
+
+        $today = date('Y-m-d');
+        $now = date('Y-m-d H:i:s');
+        $this->storeCodePrefix->insert([
+            'member_id' => (int) $memberId,
+            'prefix' => $prefix,
+            'setting_date' => $today,
+            'remark' => $remark !== '' ? $remark : null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->json(['message' => '前置碼已新增。']);
+    }
+
+    /** POST /api/admin/store-code-prefixes/{memberId}/{prefixId} */
+    public function storeCodePrefixUpdate(string $memberId, string $prefixId): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $member = $this->member->find((int) $memberId);
+        if (!$this->isActiveDealerMember($member)) {
+            $this->json(['message' => '找不到可設定前置碼的運作中經銷商會員。'], 404);
+            return;
+        }
+
+        $existing = $this->storeCodePrefix->findForMember((int) $prefixId, (int) $memberId);
+        if (!$existing) {
+            $this->json(['message' => '找不到可編輯的前置碼。'], 404);
+            return;
+        }
+
+        $validated = $this->validatedStoreCodePrefixInput((int) $prefixId);
+        if ($validated === false) {
+            return;
+        }
+        [$prefix, $remark] = $validated;
+
+        $this->storeCodePrefix->update((int) $existing['id'], [
+            'prefix' => $prefix,
+            'setting_date' => date('Y-m-d'),
+            'remark' => $remark !== '' ? $remark : null,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->json(['message' => '前置碼已更新。']);
+    }
+
     /** GET /api/admin/settings/security — 系統安全設定 */
+    /** GET /api/admin/store-codes */
+    public function storeCodeList(): void
+    {
+        if (!$this->requireSuperAdmin()) {
+            return;
+        }
+
+        $stores = array_map(function (array $row): array {
+            $memberName = trim((string) ($row['company_name'] ?: $row['member_name'] ?: $row['member_email'] ?: ''));
+            $isDealer = !empty($row['is_dealer']);
+
+            return [
+                'id' => (int) $row['id'],
+                'member_id' => (int) $row['member_id'],
+                'store_code' => $this->storeCodeForRow($row),
+                'store_name' => (string) ($row['store_name'] ?? ''),
+                'store_email' => (string) ($row['store_email'] ?? ''),
+                'member_name' => $memberName,
+                'member_code' => (string) ($row['member_code'] ?? ''),
+                'member_email' => (string) ($row['member_email'] ?? ''),
+                'dealer_name' => $isDealer ? $memberName : '',
+                'device_count' => (int) ($row['device_count'] ?? 0),
+                'status' => (string) ($row['status'] ?? 'pending'),
+                'store_type' => (string) ($row['store_type'] ?? ''),
+            ];
+        }, $this->memberStore->adminStoreCodeRows());
+
+        $this->json($stores);
+    }
+
     public function securitySettings(): void
     {
         if (!$this->requireSuperAdmin()) {
@@ -596,6 +795,9 @@ class AdminController extends Controller
         $birthDate = $this->parseRocDate($data['birth_date'] ?? '');
         $issueDate = $this->parseRocDate($data['id_issue_date'] ?? '');
         $mobilePhone = $this->normalizeTaiwanMobile($data['mobile_phone'] ?? '');
+        $contactCity = trim((string) ($data['contact_city'] ?? ''));
+        $contactDistrict = trim((string) ($data['contact_district'] ?? ''));
+        $contactAddressLine = trim((string) ($data['contact_address_line'] ?? ''));
 
         $type = $data['type'];
         $payload = [
@@ -605,7 +807,10 @@ class AdminController extends Controller
             'phone_area_code' => trim($data['phone_area_code'] ?? ''),
             'phone' => trim($data['phone'] ?? ''),
             'mobile_phone' => $mobilePhone,
-            'contact_address' => trim($data['contact_address'] ?? ''),
+            'contact_city' => $contactCity,
+            'contact_district' => $contactDistrict,
+            'contact_address_line' => $contactAddressLine,
+            'contact_address' => TaiwanAddress::compose($contactCity, $contactDistrict, $contactAddressLine),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
@@ -1016,9 +1221,7 @@ class AdminController extends Controller
         if (!$this->isValidTaiwanMobile($data['mobile_phone'] ?? '')) {
             $errors['mobile_phone'] = '請輸入有效的台灣手機號碼';
         }
-        if (trim($data['contact_address'] ?? '') === '') {
-            $errors['contact_address'] = '請輸入聯絡地址';
-        }
+        $errors = array_merge($errors, TaiwanAddress::validateParts($data));
 
         if ($type === 'personal') {
             $idno = strtoupper(trim($data['id_number'] ?? ''));
@@ -1085,6 +1288,93 @@ class AdminController extends Controller
         }
 
         return $errors;
+    }
+
+    private function validateDeviceSupplier(array $data): array
+    {
+        $errors = [];
+        $required = [
+            'company_name' => '請輸入公司名稱。',
+            'tax_id' => '請輸入公司統一編號。',
+            'company_address' => '請輸入公司地址。',
+            'contact_name' => '請輸入聯絡人。',
+            'contact_phone' => '請輸入連絡電話。',
+            'up_memo' => '請輸入備註。',
+        ];
+
+        foreach ($required as $field => $message) {
+            if (trim((string) ($data[$field] ?? '')) === '') {
+                $errors[$field] = $message;
+            }
+        }
+
+        $taxId = trim((string) ($data['tax_id'] ?? ''));
+        if ($taxId !== '' && !preg_match('/^\d{8}$/', $taxId)) {
+            $errors['tax_id'] = '公司統一編號需為 8 碼數字。';
+        }
+
+        $note = $this->sanitizeShortText((string) ($data['up_memo'] ?? ''));
+        if ($note !== '' && mb_strlen($note, 'UTF-8') > 400) {
+            $errors['up_memo'] = '備註最多 400 字元。';
+        }
+
+        return $errors;
+    }
+
+    private function sanitizeShortText(string $value): string
+    {
+        return trim((string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value));
+    }
+
+    private function validatedStoreCodePrefixInput(?int $exceptId = null): array|false
+    {
+        $data = $this->input();
+        $prefix = strtoupper(trim((string) ($data['prefix'] ?? '')));
+        $remark = $this->sanitizeShortText((string) ($data['remark'] ?? ''));
+
+        if (!preg_match('/^[A-Z]{4}$/', $prefix)) {
+            $this->json(['errors' => ['prefix' => '前置碼必須剛好為 4 個英文字母。']], 422);
+            return false;
+        }
+        if (mb_strlen($remark, 'UTF-8') > 400) {
+            $this->json(['errors' => ['remark' => '備註最多 400 字元。']], 422);
+            return false;
+        }
+        if ($this->storeCodePrefix->existsPrefix($prefix, $exceptId)) {
+            $this->json(['errors' => ['prefix' => '此前置碼已被使用，請改用其他四碼。']], 422);
+            return false;
+        }
+
+        return [$prefix, $remark];
+    }
+
+    private function isActiveDealerMember(array|false $member): bool
+    {
+        return (bool) $member
+            && (int) ($member['is_dealer'] ?? 0) === 1
+            && ($member['status'] ?? '') === 'active';
+    }
+
+    private function dealerSummary(array $member): array
+    {
+        return [
+            'id' => (int) $member['id'],
+            'member_code' => $member['member_code'] ?? '',
+            'name' => $member['name'] ?? '',
+            'company_name' => $member['company_name'] ?? '',
+            'email' => $member['email'] ?? '',
+            'status' => $member['status'] ?? '',
+        ];
+    }
+
+    private function storeCodeForRow(array $store): string
+    {
+        $prefix = strtoupper(trim((string) ($store['dealer_prefix'] ?? '')));
+        if (!preg_match('/^[A-Z]{4}$/', $prefix)) {
+            $prefix = ($store['store_type'] ?? '') === 'physical' ? 'NEDC' : 'NPPA';
+        }
+
+        return $prefix . str_pad((string) ($store['id'] ?? 0), 8, '0', STR_PAD_LEFT);
     }
 
     private function clientIp(): string

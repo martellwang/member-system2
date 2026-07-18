@@ -5,6 +5,8 @@ $staffCreateHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff?action
 $staffSecurityHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#security-settings';
 $staffGroupsHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#group-settings';
 $staffDeviceHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#device-management';
+$staffStoreCodeHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#store-code-management';
+$staffPaymentUpstreamHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#payment-upstream-management';
 ?>
 <div class="staff-side">
   <div class="card staff-menu-card">
@@ -22,6 +24,12 @@ $staffDeviceHref = htmlspecialchars($appBase, ENT_QUOTES) . '/admin/staff#device
     </a>
     <a class="staff-menu-option <?= $staffMenuMode === 'devices' ? 'active' : '' ?>" href="<?= $staffDeviceHref ?>" id="staff-show-devices">
       <span>設備管理</span>
+    </a>
+    <a class="staff-menu-option <?= $staffMenuMode === 'store-codes' ? 'active' : '' ?>" href="<?= $staffStoreCodeHref ?>" id="staff-show-store-codes">
+      <span>商店代號管理</span>
+    </a>
+    <a class="staff-menu-option <?= $staffMenuMode === 'payment-upstream' ? 'active' : '' ?>" href="<?= $staffPaymentUpstreamHref ?>" id="staff-show-payment-upstream">
+      <span>金流上游管理</span>
     </a>
   </div>
 </div>

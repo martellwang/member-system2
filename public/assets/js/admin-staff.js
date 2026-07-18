@@ -8,6 +8,13 @@ let staffKeyword = '';
 let securityAllowedIps = [];
 let permissionGroups = [];
 let editingGroupIndex = null;
+let activeDealerRows = [];
+let selectedStoreCodeDealer = null;
+let selectedStoreCodePrefixData = null;
+let editingStoreCodePrefixId = null;
+let storeCodeRows = [];
+let deviceSupplierRows = [];
+let editingDeviceSupplierId = null;
 const PERMISSION_LABELS = {
   'member.view': '查看會員資料',
   'member.edit': '編輯會員資料',
@@ -233,6 +240,467 @@ function statusClass(status) {
   return 'badge-suspended';
 }
 
+async function loadActiveDealers() {
+  const members = await requestJson(`${API}/admin/members`);
+  activeDealerRows = members.filter(member => Number(member.is_dealer) === 1 && member.status === 'active');
+  activeDealerRows = await Promise.all(activeDealerRows.map(async (dealer) => {
+    try {
+      const data = await requestJson(`${API}/admin/store-code-prefixes/${Number(dealer.id)}`);
+      const prefixes = Array.isArray(data.prefixes) ? data.prefixes.map((item) => item.prefix).filter(Boolean) : [];
+      return { ...dealer, store_code_prefixes: prefixes, store_code_prefix: prefixes.join('、') };
+    } catch (_) {
+      return { ...dealer, store_code_prefixes: [], store_code_prefix: '' };
+    }
+  }));
+  return activeDealerRows;
+}
+
+function dealerDisplayName(dealer) {
+  return dealer.company_name || dealer.name || dealer.email || `會員 #${dealer.id}`;
+}
+
+async function loadStoreCodeRows() {
+  storeCodeRows = await requestJson(`${API}/admin/store-codes`);
+  return storeCodeRows;
+}
+
+function storeStatusLabel(status) {
+  if (status === 'active') return '啟用';
+  if (status === 'pending') return '待審';
+  if (status === 'suspended') return '停用';
+  if (status === 'rejected') return '退件';
+  return '未設定';
+}
+
+function storeStatusBadgeClass(status) {
+  if (status === 'active') return 'badge-active';
+  if (status === 'pending') return 'badge-pending';
+  return 'badge-suspended';
+}
+
+function renderStoreCodeRows() {
+  const panel = document.getElementById('store-code-panel');
+  if (!panel) return;
+
+  if (!storeCodeRows.length) {
+    panel.innerHTML = '<div class="store-code-empty">目前尚無商店代號資料。</div>';
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="table-card store-code-list-card">
+      <table class="store-code-list-table">
+        <thead>
+          <tr>
+            <th>序號</th>
+            <th>商店代號</th>
+            <th>會員名稱</th>
+            <th>經銷商</th>
+            <th>設備數量</th>
+            <th>啟用狀態</th>
+            <th>編輯</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${storeCodeRows.map((row, index) => {
+            const editUrl = `${APP_BASE}/admin/members/${Number(row.member_id)}/edit#admin-store-management`;
+            return `
+              <tr>
+                <td>${index + 1}</td>
+                <td>
+                  <strong>${escapeHtml(row.store_code || '-')}</strong>
+                  <span class="muted block">${escapeHtml(row.store_name || '')}</span>
+                </td>
+                <td>
+                  <strong>${escapeHtml(row.member_name || '-')}</strong>
+                  <span class="muted block">${escapeHtml(row.member_code || '')}${row.member_email ? `｜${escapeHtml(row.member_email)}` : ''}</span>
+                </td>
+                <td>${row.dealer_name ? escapeHtml(row.dealer_name) : '<span class="muted">—</span>'}</td>
+                <td><span class="store-code-device-count">${Number(row.device_count || 0)}</span></td>
+                <td><span class="badge ${storeStatusBadgeClass(row.status)}">${storeStatusLabel(row.status)}</span></td>
+                <td><a class="btn btn-sm btn-outline" href="${editUrl}">編輯</a></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderStoreCodePrefixDealerList() {
+  const panel = document.getElementById('store-code-panel');
+  if (!panel) return;
+
+  selectedStoreCodeDealer = null;
+  if (!activeDealerRows.length) {
+    panel.innerHTML = `
+      <div class="store-code-empty">
+        目前沒有標註為運作中的經銷商會員。
+      </div>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="table-card store-code-dealer-table-card">
+      <table class="store-code-dealer-table">
+        <thead>
+          <tr>
+            <th>序號</th>
+            <th>公司名稱</th>
+            <th>現有前置碼列表</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${activeDealerRows.map((dealer, index) => `
+            <tr class="store-code-dealer-row" data-store-code-dealer-id="${Number(dealer.id)}">
+              <td>${index + 1}</td>
+              <td>
+                <strong>${escapeHtml(dealerDisplayName(dealer))}</strong>
+                <span class="muted block">${escapeHtml(dealer.member_code || '')}${dealer.member_code ? ' ｜ ' : ''}${escapeHtml(dealer.email || '')}</span>
+              </td>
+              <td>
+                ${dealer.store_code_prefixes?.length
+                  ? dealer.store_code_prefixes.map((prefix) => `<span class="store-code-prefix-chip">${escapeHtml(prefix)}</span>`).join('')
+                  : '<span class="muted">尚未設定</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function renderStoreCodePrefixSettings(dealerId) {
+  const panel = document.getElementById('store-code-panel');
+  if (!panel) return;
+
+  selectedStoreCodeDealer = activeDealerRows.find(dealer => Number(dealer.id) === Number(dealerId)) || null;
+  if (!selectedStoreCodeDealer) {
+    renderStoreCodePrefixDealerList();
+    return;
+  }
+
+  panel.innerHTML = '<div class="store-code-empty">前置碼設定載入中...</div>';
+  selectedStoreCodePrefixData = await requestJson(`${API}/admin/store-code-prefixes/${Number(dealerId)}`);
+  renderStoreCodePrefixWorkspace('list');
+}
+
+function renderStoreCodePrefixWorkspace(mode = 'list', prefixId = null) {
+  const panel = document.getElementById('store-code-panel');
+  if (!panel || !selectedStoreCodeDealer || !selectedStoreCodePrefixData) return;
+
+  editingStoreCodePrefixId = mode === 'edit' ? Number(prefixId) : null;
+  const isList = mode === 'list';
+  const isCreate = mode === 'create';
+
+  panel.innerHTML = `
+    <div class="store-code-prefix-settings">
+      <div class="store-code-prefix-header">
+        <button type="button" class="btn btn-sm btn-outline" id="store-code-back-dealers">返回經銷商列表</button>
+        <div>
+          <h3>${escapeHtml(dealerDisplayName(selectedStoreCodeDealer))}</h3>
+          <p>${escapeHtml(selectedStoreCodeDealer.email || '')}</p>
+        </div>
+      </div>
+      <div class="store-code-prefix-mode-row">
+        <button type="button" class="store-code-prefix-mode ${isList ? 'active' : ''}" data-store-code-prefix-mode="list">前置碼列表</button>
+        <button type="button" class="store-code-prefix-mode ${isCreate ? 'active' : ''}" data-store-code-prefix-mode="create">新增前置碼</button>
+      </div>
+      <div class="store-code-prefix-content">
+        ${isList ? renderStoreCodePrefixList() : renderStoreCodePrefixForm(mode)}
+      </div>
+    </div>
+  `;
+}
+
+function renderStoreCodePrefixList() {
+  const prefixes = Array.isArray(selectedStoreCodePrefixData?.prefixes) ? selectedStoreCodePrefixData.prefixes : [];
+  if (!prefixes.length) {
+    return `
+      <div class="store-code-prefix-list-empty">
+        此會員目前尚未建立前置碼。
+      </div>
+    `;
+  }
+
+  return `
+    <div class="table-card store-code-prefix-list-card">
+      <table class="store-code-list-table">
+        <thead>
+          <tr>
+            <th>序號</th>
+              <th>前置碼</th>
+              <th>設定時間</th>
+              <th>適用會員</th>
+              <th>備註</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+        <tbody>
+          ${prefixes.map((prefix, index) => `
+            <tr>
+              <td>${index + 1}</td>
+                <td><strong>${escapeHtml(prefix.prefix || '-')}</strong></td>
+                <td>${escapeHtml(prefix.setting_date || '-')}</td>
+                <td>${escapeHtml(dealerDisplayName(selectedStoreCodeDealer))}</td>
+                <td>${prefix.remark ? escapeHtml(prefix.remark) : '<span class="muted">—</span>'}</td>
+                <td><button type="button" class="btn btn-sm btn-outline" data-edit-store-code-prefix="${Number(prefix.id)}">編輯</button></td>
+              </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderStoreCodePrefixForm(mode = 'create') {
+  const isEdit = mode === 'edit';
+  const prefixData = isEdit
+    ? (selectedStoreCodePrefixData?.prefixes || []).find((item) => Number(item.id) === Number(editingStoreCodePrefixId))
+    : null;
+  const prefix = prefixData?.prefix || '';
+  const settingDate = prefixData?.setting_date || selectedStoreCodePrefixData?.today || '';
+  const remark = prefixData?.remark || '';
+
+  return `
+    <form class="store-code-prefix-form" id="store-code-prefix-form" data-store-code-prefix-member-id="${Number(selectedStoreCodeDealer.id)}" data-store-code-prefix-id="${prefixData ? Number(prefixData.id) : ''}" novalidate>
+      <div class="form-title">${isEdit ? '編輯前置碼' : '新增前置碼'}</div>
+      <div class="form-subtitle">此前置碼只用在此會員身上。</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>前置碼 <span class="required">*</span></label>
+          <input type="text" id="store-code-prefix-input" value="${escapeHtml(prefix)}" maxlength="4" autocomplete="off" />
+          <div class="field-hint">前置碼必須剛好為四個英文字母。</div>
+        </div>
+        <div class="form-group">
+          <label>設定時間</label>
+          <input type="date" id="store-code-prefix-date" value="${escapeHtml(settingDate)}" readonly />
+          <div class="field-hint">系統自動帶入當天日期。</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>備註</label>
+          <textarea id="store-code-prefix-remark" maxlength="400" rows="4">${escapeHtml(remark)}</textarea>
+          <div class="field-hint">最多 400 字元。</div>
+        </div>
+        <div class="alert alert-success" id="store-code-prefix-success"></div>
+      <div class="alert alert-danger" id="store-code-prefix-error"><span id="store-code-prefix-error-msg"></span></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" id="store-code-prefix-list-back">返回前置碼列表</button>
+        <button type="submit" class="btn btn-success">${isEdit ? '儲存修改' : '儲存前置碼'}</button>
+      </div>
+    </form>
+  `;
+}
+
+async function showStoreCodePrefixTab() {
+  const panel = document.getElementById('store-code-panel');
+  if (panel) {
+    panel.innerHTML = '<div class="store-code-empty">經銷商資料載入中...</div>';
+  }
+
+  await loadActiveDealers();
+  renderStoreCodePrefixDealerList();
+}
+
+async function showStoreCodeListTab() {
+  const panel = document.getElementById('store-code-panel');
+  selectedStoreCodeDealer = null;
+  if (panel) {
+    panel.innerHTML = '<div class="store-code-empty">商店代號列表載入中...</div>';
+  }
+  await loadStoreCodeRows();
+  renderStoreCodeRows();
+}
+
+function activateStoreCodeTab(tabName) {
+  document.querySelectorAll('[data-store-code-tab]').forEach((item) => {
+    item.classList.toggle('active', item.dataset.storeCodeTab === tabName);
+  });
+}
+
+function showStoreCodePrefixError(message) {
+  document.getElementById('store-code-prefix-success')?.classList.remove('show');
+  const msg = document.getElementById('store-code-prefix-error-msg');
+  const box = document.getElementById('store-code-prefix-error');
+  if (msg) msg.textContent = message;
+  box?.classList.add('show');
+}
+
+function showStoreCodePrefixSuccess(message) {
+  document.getElementById('store-code-prefix-error')?.classList.remove('show');
+  const box = document.getElementById('store-code-prefix-success');
+  if (box) box.textContent = message;
+  box?.classList.add('show');
+}
+
+async function saveStoreCodePrefix(form) {
+  const memberId = Number(form.dataset.storeCodePrefixMemberId);
+  const prefixId = Number(form.dataset.storeCodePrefixId || 0);
+  const input = document.getElementById('store-code-prefix-input');
+  const remarkInput = document.getElementById('store-code-prefix-remark');
+  const prefix = (input?.value || '').trim().toUpperCase();
+  const remark = (remarkInput?.value || '').trim();
+  if (input) input.value = prefix;
+
+  if (!/^[A-Z]{4}$/.test(prefix)) {
+    showStoreCodePrefixError('前置碼必須剛好為 4 個英文字母。');
+    input?.focus();
+    return;
+  }
+  if (remark.length > 400) {
+    showStoreCodePrefixError('備註最多 400 字元。');
+    remarkInput?.focus();
+    return;
+  }
+
+  const url = prefixId
+    ? `${API}/admin/store-code-prefixes/${memberId}/${prefixId}`
+    : `${API}/admin/store-code-prefixes/${memberId}`;
+  const data = await requestJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefix, remark }),
+  });
+  showStoreCodePrefixSuccess(data.message || (prefixId ? '前置碼已更新。' : '前置碼已新增。'));
+}
+
+async function loadDeviceSuppliers() {
+  deviceSupplierRows = await requestJson(`${API}/admin/device-suppliers`);
+  return deviceSupplierRows;
+}
+
+function renderDeviceSupplierList() {
+  const panel = document.getElementById('device-group-panel');
+  if (!panel) return;
+
+  editingDeviceSupplierId = null;
+  if (!deviceSupplierRows.length) {
+    panel.innerHTML = '<div class="device-supplier-empty">尚未建立設備供應商群組。</div>';
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="device-supplier-list">
+      ${deviceSupplierRows.map((supplier) => `
+        <div class="device-supplier-item">
+          <div>
+            <strong>${escapeHtml(supplier.company_name)}</strong>
+            <span>${escapeHtml(supplier.tax_id)} ｜ 備註：${escapeHtml(supplier.up_memo)}</span>
+            <em>${escapeHtml(supplier.contact_name)} ｜ ${escapeHtml(supplier.contact_phone)}</em>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" data-edit-device-supplier="${Number(supplier.id)}">編輯</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderDeviceSupplierForm(supplier = null) {
+  const panel = document.getElementById('device-group-panel');
+  if (!panel) return;
+
+  editingDeviceSupplierId = supplier ? Number(supplier.id) : null;
+  panel.innerHTML = `
+    <form class="device-supplier-form" id="device-supplier-form" novalidate>
+      <div class="form-title">${supplier ? '編輯設備供應商' : '新增設備供應商'}</div>
+      <div class="form-subtitle">建立設備供應商資料，後續可在群組列表中修改。</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>公司名稱 <span class="required">*</span></label>
+          <input type="text" id="device-supplier-company-name" value="${escapeHtml(supplier?.company_name || '')}" />
+        </div>
+        <div class="form-group">
+          <label>公司統一編號 <span class="required">*</span></label>
+          <input type="text" id="device-supplier-tax-id" value="${escapeHtml(supplier?.tax_id || '')}" maxlength="8" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>公司地址 <span class="required">*</span></label>
+        <input type="text" id="device-supplier-company-address" value="${escapeHtml(supplier?.company_address || '')}" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>聯絡人 <span class="required">*</span></label>
+          <input type="text" id="device-supplier-contact-name" value="${escapeHtml(supplier?.contact_name || '')}" />
+        </div>
+        <div class="form-group">
+          <label>連絡電話 <span class="required">*</span></label>
+          <input type="text" id="device-supplier-contact-phone" value="${escapeHtml(supplier?.contact_phone || '')}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>備註 <span class="required">*</span></label>
+        <input type="text" id="device-supplier-up-memo" value="${escapeHtml(supplier?.up_memo || '')}" maxlength="400" />
+        <div class="field-hint">最多 400 字元。</div>
+      </div>
+      <div class="alert alert-success" id="device-supplier-success"></div>
+      <div class="alert alert-danger" id="device-supplier-error"><span id="device-supplier-error-msg"></span></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" id="device-supplier-back-list">返回列表</button>
+        <button type="submit" class="btn btn-success">${supplier ? '儲存修改' : '儲存設備供應商'}</button>
+      </div>
+    </form>
+  `;
+}
+
+function deviceSupplierPayload() {
+  return {
+    company_name: document.getElementById('device-supplier-company-name')?.value.trim() || '',
+    tax_id: document.getElementById('device-supplier-tax-id')?.value.trim() || '',
+    company_address: document.getElementById('device-supplier-company-address')?.value.trim() || '',
+    contact_name: document.getElementById('device-supplier-contact-name')?.value.trim() || '',
+    contact_phone: document.getElementById('device-supplier-contact-phone')?.value.trim() || '',
+    up_memo: document.getElementById('device-supplier-up-memo')?.value.trim() || '',
+  };
+}
+
+function showDeviceSupplierError(message) {
+  document.getElementById('device-supplier-success')?.classList.remove('show');
+  const msg = document.getElementById('device-supplier-error-msg');
+  const box = document.getElementById('device-supplier-error');
+  if (msg) msg.textContent = message;
+  box?.classList.add('show');
+}
+
+function showDeviceSupplierSuccess(message) {
+  document.getElementById('device-supplier-error')?.classList.remove('show');
+  const box = document.getElementById('device-supplier-success');
+  if (box) box.textContent = message;
+  box?.classList.add('show');
+}
+
+async function saveDeviceSupplier() {
+  const payload = deviceSupplierPayload();
+  if (payload.up_memo.length > 400) {
+    showDeviceSupplierError('備註最多 400 字元。');
+    document.getElementById('device-supplier-up-memo')?.focus();
+    return;
+  }
+  const url = editingDeviceSupplierId
+    ? `${API}/admin/device-suppliers/${editingDeviceSupplierId}/update`
+    : `${API}/admin/device-suppliers/create`;
+
+  const data = await requestJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  showDeviceSupplierSuccess(data.message || '設備供應商已儲存。');
+  await loadDeviceSuppliers();
+  renderDeviceSupplierList();
+}
+
+async function showDeviceSupplierList() {
+  const panel = document.getElementById('device-group-panel');
+  if (panel) panel.innerHTML = '<div class="device-supplier-empty">資料載入中...</div>';
+  await loadDeviceSuppliers();
+  renderDeviceSupplierList();
+}
+
 function showStaffError(message) {
   document.getElementById('staff-success').classList.remove('show');
   document.getElementById('staff-error-msg').textContent = message;
@@ -255,7 +723,7 @@ function resetStaffForm() {
 }
 
 function showStaffList() {
-  if (['#security-settings', '#group-settings', '#device-management'].includes(window.location.hash)) {
+  if (['#security-settings', '#group-settings', '#device-management', '#store-code-management', '#payment-upstream-management'].includes(window.location.hash)) {
     history.replaceState(null, '', `${APP_BASE}/admin/staff`);
   }
   document.getElementById('staff-add-panel').hidden = true;
@@ -263,11 +731,15 @@ function showStaffList() {
   document.getElementById('security-settings').hidden = true;
   document.getElementById('group-settings').hidden = true;
   document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = true;
   document.getElementById('staff-show-accounts')?.classList.add('active');
   document.getElementById('staff-show-create')?.classList.remove('active');
   document.getElementById('staff-show-security')?.classList.remove('active');
   document.getElementById('staff-show-groups')?.classList.remove('active');
   document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
   resetStaffForm();
 }
 
@@ -279,12 +751,16 @@ function showStaffCreate() {
   document.getElementById('security-settings').hidden = true;
   document.getElementById('group-settings').hidden = true;
   document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = true;
   document.getElementById('staff-add-panel').hidden = false;
   document.getElementById('staff-show-accounts')?.classList.add('active');
   document.getElementById('staff-show-create')?.classList.add('active');
   document.getElementById('staff-show-security')?.classList.remove('active');
   document.getElementById('staff-show-groups')?.classList.remove('active');
   document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
   resetStaffForm();
   document.getElementById('staff-name')?.focus();
 }
@@ -298,11 +774,15 @@ function showSecuritySettings() {
   document.getElementById('security-settings').hidden = false;
   document.getElementById('group-settings').hidden = true;
   document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = true;
   document.getElementById('staff-show-accounts')?.classList.remove('active');
   document.getElementById('staff-show-create')?.classList.remove('active');
   document.getElementById('staff-show-security')?.classList.add('active');
   document.getElementById('staff-show-groups')?.classList.remove('active');
   document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
   resetStaffForm();
 }
 
@@ -315,11 +795,15 @@ function showGroupSettings() {
   document.getElementById('security-settings').hidden = true;
   document.getElementById('group-settings').hidden = false;
   document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = true;
   document.getElementById('staff-show-accounts')?.classList.remove('active');
   document.getElementById('staff-show-create')?.classList.remove('active');
   document.getElementById('staff-show-security')?.classList.add('active');
   document.getElementById('staff-show-groups')?.classList.add('active');
   document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
   resetStaffForm();
 }
 
@@ -332,11 +816,64 @@ function showDeviceManagement() {
   document.getElementById('security-settings').hidden = true;
   document.getElementById('group-settings').hidden = true;
   document.getElementById('device-management').hidden = false;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = true;
   document.getElementById('staff-show-accounts')?.classList.remove('active');
   document.getElementById('staff-show-create')?.classList.remove('active');
   document.getElementById('staff-show-security')?.classList.remove('active');
   document.getElementById('staff-show-groups')?.classList.remove('active');
   document.getElementById('staff-show-devices')?.classList.add('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
+  resetStaffForm();
+}
+
+function showStoreCodeManagement() {
+  if (window.location.hash !== '#store-code-management') {
+    history.replaceState(null, '', `${APP_BASE}/admin/staff#store-code-management`);
+  }
+  document.getElementById('staff-add-panel').hidden = true;
+  document.getElementById('staff-list-panel').hidden = true;
+  document.getElementById('security-settings').hidden = true;
+  document.getElementById('group-settings').hidden = true;
+  document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = false;
+  document.getElementById('payment-upstream-management').hidden = true;
+  document.getElementById('staff-show-accounts')?.classList.remove('active');
+  document.getElementById('staff-show-create')?.classList.remove('active');
+  document.getElementById('staff-show-security')?.classList.remove('active');
+  document.getElementById('staff-show-groups')?.classList.remove('active');
+  document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.add('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
+  resetStaffForm();
+  activateStoreCodeTab('prefix');
+  showStoreCodePrefixTab().catch(() => {
+    const panel = document.getElementById('store-code-panel');
+    if (panel) {
+      panel.innerHTML = '<div class="store-code-empty">經銷商資料載入失敗，請稍後再試。</div>';
+    }
+  });
+}
+
+function showPaymentUpstreamManagement() {
+  if (window.location.hash !== '#payment-upstream-management') {
+    history.replaceState(null, '', `${APP_BASE}/admin/staff#payment-upstream-management`);
+  }
+  document.getElementById('staff-add-panel').hidden = true;
+  document.getElementById('staff-list-panel').hidden = true;
+  document.getElementById('security-settings').hidden = true;
+  document.getElementById('group-settings').hidden = true;
+  document.getElementById('device-management').hidden = true;
+  document.getElementById('store-code-management').hidden = true;
+  document.getElementById('payment-upstream-management').hidden = false;
+  document.getElementById('staff-show-accounts')?.classList.remove('active');
+  document.getElementById('staff-show-create')?.classList.remove('active');
+  document.getElementById('staff-show-security')?.classList.remove('active');
+  document.getElementById('staff-show-groups')?.classList.remove('active');
+  document.getElementById('staff-show-devices')?.classList.remove('active');
+  document.getElementById('staff-show-store-codes')?.classList.remove('active');
+  document.getElementById('staff-show-payment-upstream')?.classList.add('active');
   resetStaffForm();
 }
 
@@ -490,19 +1027,156 @@ document.getElementById('staff-show-devices')?.addEventListener('click', (event)
   event.preventDefault();
   showDeviceManagement();
 });
+document.getElementById('staff-show-store-codes')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  showStoreCodeManagement();
+});
+document.getElementById('staff-show-payment-upstream')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  showPaymentUpstreamManagement();
+});
 document.querySelectorAll('[data-device-banner]').forEach((button) => {
   button.addEventListener('click', () => {
+    const panel = document.querySelector('.device-panel-placeholder');
     const title = document.getElementById('device-panel-title');
     const copy = document.getElementById('device-panel-copy');
     const text = button.querySelector('strong')?.textContent || '設備管理';
     const subtitle = button.querySelector('span')?.textContent || '後續可在此接續開發完整表單與列表。';
+    const isBlankPanel = button.dataset.deviceBanner === 'groups';
 
     document.querySelectorAll('[data-device-banner]').forEach((item) => {
       item.classList.toggle('active', item === button);
     });
-    if (title) title.textContent = text;
-    if (copy) copy.textContent = subtitle;
+    panel?.classList.toggle('device-panel-blank', isBlankPanel);
+    if (title) title.textContent = isBlankPanel ? '' : text;
+    if (copy) copy.textContent = isBlankPanel ? '' : subtitle;
+    if (isBlankPanel) {
+      document.querySelectorAll('[data-device-group-tab]').forEach((item) => {
+        item.classList.toggle('active', item.dataset.deviceGroupTab === 'list');
+      });
+      showDeviceSupplierList().catch(() => {
+        const groupPanel = document.getElementById('device-group-panel');
+        if (groupPanel) groupPanel.innerHTML = '<div class="device-supplier-empty">設備供應商資料載入失敗，請稍後再試。</div>';
+      });
+    }
   });
+});
+document.querySelectorAll('[data-store-code-tab]').forEach((button) => {
+  button.addEventListener('click', () => {
+    activateStoreCodeTab(button.dataset.storeCodeTab);
+    if (button.dataset.storeCodeTab === 'prefix') {
+      showStoreCodePrefixTab().catch(() => {
+        const panel = document.getElementById('store-code-panel');
+        if (panel) {
+          panel.innerHTML = '<div class="store-code-empty">經銷商資料載入失敗，請稍後再試。</div>';
+        }
+      });
+    } else {
+      showStoreCodeListTab().catch(() => {
+        const panel = document.getElementById('store-code-panel');
+        if (panel) {
+          panel.innerHTML = '<div class="store-code-empty">商店代號列表載入失敗，請稍後再試。</div>';
+        }
+      });
+    }
+  });
+});
+document.getElementById('store-code-panel')?.addEventListener('click', (event) => {
+  const dealerButton = event.target.closest('[data-store-code-dealer-id]');
+  if (dealerButton) {
+    renderStoreCodePrefixSettings(dealerButton.dataset.storeCodeDealerId).catch((error) => {
+      const panel = document.getElementById('store-code-panel');
+      if (panel) {
+        panel.innerHTML = `<div class="store-code-empty">${escapeHtml(error.message || '前置碼設定載入失敗，請稍後再試。')}</div>`;
+      }
+    });
+    return;
+  }
+
+  if (event.target.closest('#store-code-back-dealers') || event.target.closest('#store-code-prefix-back')) {
+    renderStoreCodePrefixDealerList();
+    return;
+  }
+
+  const editStoreCodePrefixButton = event.target.closest('[data-edit-store-code-prefix]');
+  if (editStoreCodePrefixButton) {
+    renderStoreCodePrefixWorkspace('edit', editStoreCodePrefixButton.dataset.editStoreCodePrefix);
+    return;
+  }
+
+  const prefixModeButton = event.target.closest('[data-store-code-prefix-mode]');
+  if (prefixModeButton) {
+    renderStoreCodePrefixWorkspace(prefixModeButton.dataset.storeCodePrefixMode);
+    return;
+  }
+
+  if (event.target.closest('#store-code-prefix-list-back')) {
+    renderStoreCodePrefixWorkspace('list');
+  }
+});
+document.getElementById('store-code-panel')?.addEventListener('input', (event) => {
+  if (event.target.id === 'store-code-prefix-input') {
+    event.target.value = event.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 4);
+  }
+});
+document.getElementById('store-code-panel')?.addEventListener('submit', async (event) => {
+  if (event.target.id !== 'store-code-prefix-form') return;
+  event.preventDefault();
+  try {
+    await saveStoreCodePrefix(event.target);
+    await renderStoreCodePrefixSettings(event.target.dataset.storeCodePrefixMemberId);
+  } catch (error) {
+    const message = error.details ? Object.values(error.details).join(' ') : error.message;
+    showStoreCodePrefixError(message || '前置碼設定儲存失敗。');
+  }
+});
+document.querySelectorAll('[data-device-group-tab]').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('[data-device-group-tab]').forEach((item) => {
+      item.classList.toggle('active', item === button);
+    });
+    if (button.dataset.deviceGroupTab === 'create') {
+      renderDeviceSupplierForm();
+    } else {
+      showDeviceSupplierList().catch(() => {
+        const panel = document.getElementById('device-group-panel');
+        if (panel) panel.innerHTML = '<div class="device-supplier-empty">設備供應商資料載入失敗，請稍後再試。</div>';
+      });
+    }
+  });
+});
+document.getElementById('device-group-panel')?.addEventListener('click', (event) => {
+  const editButton = event.target.closest('[data-edit-device-supplier]');
+  if (editButton) {
+    const supplier = deviceSupplierRows.find((row) => Number(row.id) === Number(editButton.dataset.editDeviceSupplier));
+    if (supplier) {
+      document.querySelectorAll('[data-device-group-tab]').forEach((item) => {
+        item.classList.toggle('active', item.dataset.deviceGroupTab === 'create');
+      });
+      renderDeviceSupplierForm(supplier);
+    }
+    return;
+  }
+
+  if (event.target.closest('#device-supplier-back-list')) {
+    document.querySelectorAll('[data-device-group-tab]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.deviceGroupTab === 'list');
+    });
+    renderDeviceSupplierList();
+  }
+});
+document.getElementById('device-group-panel')?.addEventListener('submit', async (event) => {
+  if (event.target.id !== 'device-supplier-form') return;
+  event.preventDefault();
+  try {
+    await saveDeviceSupplier();
+    document.querySelectorAll('[data-device-group-tab]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.deviceGroupTab === 'list');
+    });
+  } catch (error) {
+    const message = error.details ? Object.values(error.details).join(' ') : error.message;
+    showDeviceSupplierError(message || '設備供應商儲存失敗。');
+  }
 });
 document.getElementById('staff-search')?.addEventListener('input', (event) => {
   staffKeyword = event.target.value || '';
@@ -718,6 +1392,10 @@ async function initStaffPage() {
   await Promise.all([loadStaff(), loadSecuritySettings()]);
   if (window.location.hash === '#group-settings') {
     showGroupSettings();
+  } else if (window.location.hash === '#store-code-management') {
+    showStoreCodeManagement();
+  } else if (window.location.hash === '#payment-upstream-management') {
+    showPaymentUpstreamManagement();
   } else if (window.location.hash === '#device-management') {
     showDeviceManagement();
   } else if (window.location.hash === '#security-settings') {

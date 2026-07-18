@@ -71,8 +71,12 @@ $googleSignup = $googleSignup ?? null;
       <div class="form-row">
         <div class="form-group <?= $googleSignup ? 'form-group-wide' : '' ?>">
           <label>聯絡地址 <span class="required">*</span></label>
-          <input type="text" id="f-address" name="contact_address" placeholder="請輸入聯絡地址" />
-          <div class="error-msg" id="err-address">請輸入聯絡地址</div>
+          <div class="address-input-group">
+            <select id="f-contact-city" name="contact_city" aria-label="縣市"></select>
+            <select id="f-contact-district" name="contact_district" aria-label="地區"></select>
+            <input type="text" id="f-address-line" name="contact_address_line" placeholder="請輸入地址" maxlength="255" />
+          </div>
+          <div class="error-msg" id="err-address">請完整選擇縣市、地區並輸入地址</div>
         </div>
         <?php if (!$googleSignup): ?>
           <div class="form-group">
@@ -253,4 +257,5 @@ $googleSignup = $googleSignup ?? null;
 </div>
 
 <script>const CSRF_TOKEN = '<?= htmlspecialchars($csrfToken) ?>';</script>
+<script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/taiwan-address.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/taiwan-address.js') ?>"></script>
 <script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/register.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/register.js') ?>"></script>

@@ -185,7 +185,30 @@
         <div class="device-panel-placeholder">
           <h3 id="device-panel-title">設備總覽</h3>
           <p id="device-panel-copy">請先從上方選擇設備功能，後續可在此接續開發完整表單與列表。</p>
+          <div class="device-group-tab-row" aria-label="設備群組功能">
+            <button type="button" class="device-group-tab active" data-device-group-tab="list">群組列表</button>
+            <button type="button" class="device-group-tab" data-device-group-tab="create">新增群組</button>
+          </div>
+          <div class="device-group-panel" id="device-group-panel" aria-live="polite"></div>
         </div>
+      </div>
+
+      <div class="card staff-form-card" id="store-code-management" hidden>
+        <div class="form-title">商店代號管理</div>
+        <div class="form-subtitle">後續可在此管理商店代號規則、產生紀錄與商店代號狀態。</div>
+        <div class="store-code-tab-row">
+          <button type="button" class="store-code-tab active" data-store-code-tab="prefix">前置碼設定</button>
+          <button type="button" class="store-code-tab" data-store-code-tab="list">商店代號列表</button>
+        </div>
+        <div class="store-code-panel" id="store-code-panel" aria-live="polite">
+        </div>
+      </div>
+
+      <div class="card staff-form-card" id="payment-upstream-management" hidden>
+        <div class="form-title">金流上游管理</div>
+        <div class="form-subtitle">後續可在此建立金流上游相關功能選項。</div>
+        <div class="payment-upstream-option-row" aria-label="金流上游功能選項"></div>
+        <div class="payment-upstream-panel" aria-live="polite"></div>
       </div>
     </div>
   </div>

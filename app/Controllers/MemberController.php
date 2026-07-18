@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Core\Mailer;
 use Models\Member;
+use Support\TaiwanAddress;
 
 class MemberController extends Controller
 {
@@ -49,6 +50,14 @@ class MemberController extends Controller
         $data['mobile_phone'] = $this->normalizeTaiwanMobile($data['mobile_phone'] ?? '');
         $data['phone_area_code'] = trim($data['phone_area_code'] ?? '');
         $data['phone'] = trim($data['phone'] ?? '');
+        $data['contact_city'] = trim((string) ($data['contact_city'] ?? ''));
+        $data['contact_district'] = trim((string) ($data['contact_district'] ?? ''));
+        $data['contact_address_line'] = trim((string) ($data['contact_address_line'] ?? ''));
+        $data['contact_address'] = TaiwanAddress::compose(
+            $data['contact_city'],
+            $data['contact_district'],
+            $data['contact_address_line']
+        );
 
         if (($data['type'] ?? '') === 'personal') {
             $data['line_id'] = trim($data['line_id'] ?? '');
@@ -314,9 +323,7 @@ class MemberController extends Controller
         if (!$this->isValidTaiwanMobile($data['mobile_phone'] ?? '')) {
             $errors['mobile_phone'] = '請輸入有效的台灣手機號碼';
         }
-        if (empty($data['contact_address'])) {
-            $errors['contact_address'] = '請輸入聯絡地址';
-        }
+        $errors = array_merge($errors, TaiwanAddress::validateParts($data));
 
         if ($type === 'personal') {
             $idno = strtoupper($data['id_number'] ?? '');

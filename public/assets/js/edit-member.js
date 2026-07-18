@@ -315,6 +315,19 @@ function bindAdminStoreManagement() {
   });
 }
 
+function syncAdminStoreViewMode() {
+  const container = document.querySelector('.edit-container');
+  if (!container) return;
+
+  const isStoreView = window.location.hash === '#admin-store-management';
+  container.classList.toggle('store-view-mode', isStoreView);
+
+  document.querySelectorAll('[data-member-edit-tab]').forEach((tab) => {
+    const tabMode = tab.dataset.memberEditTab;
+    tab.classList.toggle('active', tabMode === (isStoreView ? 'stores' : 'profile'));
+  });
+}
+
 document.getElementById('member-edit-page-form').addEventListener('submit', async (event) => {
   event.preventDefault();
 
@@ -325,6 +338,13 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
     showError('請輸入有效的台灣手機號碼，例如 0912345678 或 0912-345-678。');
     return;
   }
+  const contactCity = document.getElementById('edit-contact-city').value.trim();
+  const contactDistrict = document.getElementById('edit-contact-district').value.trim();
+  const contactAddressLine = document.getElementById('edit-address-line').value.trim();
+  if (!contactCity || !contactDistrict || !contactAddressLine) {
+    showError('請完整選擇縣市、地區並輸入聯絡地址。');
+    return;
+  }
 
   const payload = {
     type,
@@ -333,7 +353,10 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
     phone_area_code: document.getElementById('edit-phone-area-code').value,
     phone: document.getElementById('edit-phone').value.trim(),
     mobile_phone: normalizeTaiwanMobile(mobile),
-    contact_address: document.getElementById('edit-address').value.trim(),
+    contact_city: contactCity,
+    contact_district: contactDistrict,
+    contact_address_line: contactAddressLine,
+    contact_address: `${contactCity}${contactDistrict}${contactAddressLine}`,
     password: document.getElementById('edit-password').value,
   };
 
@@ -470,7 +493,10 @@ function bindDocumentPreview() {
 }
 
 switchEditType(document.getElementById('edit-type').value);
+bindTaiwanAddressSelects('edit-contact-city', 'edit-contact-district');
 bindRocDatePicker('edit-id-issue-date');
 bindRocDatePicker('edit-birth');
 bindDocumentPreview();
 bindAdminStoreManagement();
+syncAdminStoreViewMode();
+window.addEventListener('hashchange', syncAdminStoreViewMode);

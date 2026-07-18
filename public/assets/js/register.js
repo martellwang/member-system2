@@ -13,7 +13,7 @@ function switchType(type) {
 
 function clearErrors() {
   document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('show'));
-  document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
+  document.querySelectorAll('input, select, textarea').forEach(el => el.classList.remove('error'));
   ['alert-success','alert-error'].forEach(id => document.getElementById(id).classList.remove('show'));
 }
 
@@ -237,12 +237,20 @@ function validate() {
   const name  = document.getElementById('f-name').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const mobile = document.getElementById('f-mobile').value.trim();
-  const address = document.getElementById('f-address').value.trim();
+  const contactCity = document.getElementById('f-contact-city').value.trim();
+  const contactDistrict = document.getElementById('f-contact-district').value.trim();
+  const contactAddressLine = document.getElementById('f-address-line').value.trim();
 
   if (!name)                            { showError('f-name', 'err-name');  valid = false; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('f-email', 'err-email'); valid = false; }
   if (!validateTaiwanMobile(mobile))    { showError('f-mobile', 'err-mobile'); valid = false; }
-  if (!address)                         { showError('f-address', 'err-address'); valid = false; }
+  if (!contactCity || !contactDistrict || !contactAddressLine) {
+    ['f-contact-city', 'f-contact-district', 'f-address-line'].forEach((id) => {
+      document.getElementById(id)?.classList.add('error');
+    });
+    document.getElementById('err-address').classList.add('show');
+    valid = false;
+  }
 
   if (type === 'personal') {
     const idno = document.getElementById('f-idno').value.trim();
@@ -311,7 +319,13 @@ async function submitRegister() {
   payload.append('phone_area_code', document.getElementById('f-phone-area-code').value);
   payload.append('phone', document.getElementById('f-phone').value.trim());
   payload.append('mobile_phone', normalizeTaiwanMobile(document.getElementById('f-mobile').value.trim()));
-  payload.append('contact_address', document.getElementById('f-address').value.trim());
+  const contactCity = document.getElementById('f-contact-city').value.trim();
+  const contactDistrict = document.getElementById('f-contact-district').value.trim();
+  const contactAddressLine = document.getElementById('f-address-line').value.trim();
+  payload.append('contact_city', contactCity);
+  payload.append('contact_district', contactDistrict);
+  payload.append('contact_address_line', contactAddressLine);
+  payload.append('contact_address', `${contactCity}${contactDistrict}${contactAddressLine}`);
   payload.append('google_id', document.getElementById('f-google-id').value);
 
   if (type === 'personal') {
@@ -361,3 +375,4 @@ async function submitRegister() {
 
 bindRocDatePicker('f-id-issue-date');
 bindRocDatePicker('f-birth');
+bindTaiwanAddressSelects('f-contact-city', 'f-contact-district');

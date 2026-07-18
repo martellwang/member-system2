@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS `members` (
   `phone_area_code`       VARCHAR(5)   DEFAULT NULL COMMENT '市話區域號碼',
   `phone`                 VARCHAR(20)  DEFAULT NULL,
   `mobile_phone`          VARCHAR(20)  DEFAULT NULL COMMENT '手機電話',
+  `contact_city`          VARCHAR(30)  DEFAULT NULL COMMENT '聯絡地址縣市',
+  `contact_district`      VARCHAR(30)  DEFAULT NULL COMMENT '聯絡地址地區',
+  `contact_address_line`  VARCHAR(255) DEFAULT NULL COMMENT '聯絡地址詳細地址',
   `contact_address`       VARCHAR(255) DEFAULT NULL COMMENT '聯絡地址',
   `password`              VARCHAR(255) NOT NULL,
   `status`                ENUM('email_unverified','active','pending','suspended') NOT NULL DEFAULT 'pending',
@@ -163,6 +166,37 @@ CREATE TABLE IF NOT EXISTS `member_stores` (
   INDEX `idx_member_stores_member` (`member_id`),
   INDEX `idx_member_stores_status` (`status`),
   CONSTRAINT `fk_member_stores_member`
+    FOREIGN KEY (`member_id`) REFERENCES `members` (`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `device_suppliers` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `company_name` VARCHAR(150) NOT NULL COMMENT '公司名稱',
+  `tax_id` VARCHAR(8) NOT NULL COMMENT '公司統一編號',
+  `company_address` VARCHAR(255) NOT NULL COMMENT '公司地址',
+  `contact_name` VARCHAR(100) NOT NULL COMMENT '聯絡人',
+  `contact_phone` VARCHAR(30) NOT NULL COMMENT '連絡電話',
+  `up_memo` VARCHAR(400) NOT NULL COMMENT '備註',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_device_suppliers_tax_id` (`tax_id`),
+  INDEX `idx_device_suppliers_company_name` (`company_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `store_code_prefixes` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `member_id` BIGINT UNSIGNED NOT NULL,
+  `prefix` CHAR(4) NOT NULL COMMENT '會員專用商店代號前置碼',
+  `setting_date` DATE NOT NULL COMMENT '設定日期',
+  `remark` VARCHAR(400) DEFAULT NULL COMMENT '備註',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_store_code_prefix_prefix` (`prefix`),
+  INDEX `idx_store_code_prefix_member` (`member_id`),
+  CONSTRAINT `fk_store_code_prefix_member`
     FOREIGN KEY (`member_id`) REFERENCES `members` (`id`)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
