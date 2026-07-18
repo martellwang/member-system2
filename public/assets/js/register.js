@@ -46,6 +46,14 @@ function validateTaxId(id) {
   return /^\d{8}$/.test(id);
 }
 
+function normalizeTaiwanMobile(value) {
+  return value.replace(/[\s\-()]/g, '');
+}
+
+function validateTaiwanMobile(value) {
+  return /^09\d{8}$/.test(normalizeTaiwanMobile(value));
+}
+
 function validateUpload(input) {
   const file = input.files[0];
   if (!file) return false;
@@ -230,21 +238,17 @@ function validate() {
   const email = document.getElementById('f-email').value.trim();
   const mobile = document.getElementById('f-mobile').value.trim();
   const address = document.getElementById('f-address').value.trim();
-  const pass  = document.getElementById('f-pass').value;
-  const googleId = document.getElementById('f-google-id').value;
 
   if (!name)                            { showError('f-name', 'err-name');  valid = false; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('f-email', 'err-email'); valid = false; }
-  if (!mobile)                          { showError('f-mobile', 'err-mobile'); valid = false; }
+  if (!validateTaiwanMobile(mobile))    { showError('f-mobile', 'err-mobile'); valid = false; }
   if (!address)                         { showError('f-address', 'err-address'); valid = false; }
-  if (!googleId && pass.length < 8)     { showError('f-pass', 'err-pass');  valid = false; }
-  if (googleId && pass && pass.length < 8) { showError('f-pass', 'err-pass'); valid = false; }
 
   if (type === 'personal') {
     const idno = document.getElementById('f-idno').value.trim();
     if (!validateIdNo(idno)) { showError('f-idno', 'err-idno'); valid = false; }
     if (!validateRocDate(document.getElementById('f-id-issue-date').value, true)) { showError('f-id-issue-date', 'err-id-issue-date'); valid = false; }
-    if (!validateRocDate(document.getElementById('f-birth').value)) { document.getElementById('f-birth').classList.add('error'); valid = false; }
+    if (!validateRocDate(document.getElementById('f-birth').value, true)) { showError('f-birth', 'err-birth'); valid = false; }
     if (!document.getElementById('f-id-issue-place').value.trim()) { showError('f-id-issue-place', 'err-id-issue-place'); valid = false; }
     if (!document.getElementById('f-id-issue-type').value) { showError('f-id-issue-type', 'err-id-issue-type'); valid = false; }
     if (!validateUpload(document.getElementById('f-id-front'))) { showError('f-id-front', 'err-id-front'); valid = false; }
@@ -258,6 +262,43 @@ function validate() {
   return valid;
 }
 
+function showRegisterSuccessModal(data) {
+  const modal = document.getElementById('register-success-modal');
+  const countdownNode = document.getElementById('register-success-countdown');
+  const nextButton = document.getElementById('register-success-next');
+  const messageNode = document.getElementById('register-success-message');
+  const destination = data.complete_url || `${APP_BASE}/register/complete`;
+  let seconds = 10;
+
+  if (!modal || !countdownNode || !nextButton) {
+    window.setTimeout(() => {
+      window.location.href = destination;
+    }, 10000);
+    return;
+  }
+
+  if (messageNode) {
+    messageNode.textContent = data.message || '請先至電子郵件信箱收取驗證信，完成信箱驗證與密碼設定。';
+  }
+
+  countdownNode.textContent = String(seconds);
+  modal.hidden = false;
+
+  const goNext = () => {
+    window.location.href = destination;
+  };
+
+  nextButton.onclick = goNext;
+  const timer = window.setInterval(() => {
+    seconds -= 1;
+    countdownNode.textContent = String(Math.max(seconds, 0));
+    if (seconds <= 0) {
+      window.clearInterval(timer);
+      goNext();
+    }
+  }, 1000);
+}
+
 async function submitRegister() {
   clearErrors();
   if (!validate()) return;
@@ -267,10 +308,10 @@ async function submitRegister() {
   payload.append('type', type);
   payload.append('name', document.getElementById('f-name').value.trim());
   payload.append('email', document.getElementById('f-email').value.trim());
+  payload.append('phone_area_code', document.getElementById('f-phone-area-code').value);
   payload.append('phone', document.getElementById('f-phone').value.trim());
-  payload.append('mobile_phone', document.getElementById('f-mobile').value.trim());
+  payload.append('mobile_phone', normalizeTaiwanMobile(document.getElementById('f-mobile').value.trim()));
   payload.append('contact_address', document.getElementById('f-address').value.trim());
-  payload.append('password', document.getElementById('f-pass').value);
   payload.append('google_id', document.getElementById('f-google-id').value);
 
   if (type === 'personal') {
@@ -288,6 +329,7 @@ async function submitRegister() {
     payload.append('company_name', document.getElementById('f-company').value.trim());
     payload.append('website', document.getElementById('f-website').value.trim());
     payload.append('industry', document.getElementById('f-industry').value);
+    payload.append('is_dealer', document.getElementById('f-is-dealer').checked ? '1' : '0');
   }
 
   try {
@@ -302,9 +344,10 @@ async function submitRegister() {
       const verifyLink = data.verification_url
         ? `<a href="${data.verification_url}" target="_blank" rel="noopener">開啟驗證連結</a>`
         : '';
-      document.getElementById('alert-success').innerHTML = `註冊成功，請至信箱完成驗證。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
+      document.getElementById('alert-success').innerHTML = `註冊資料已送出，請至信箱完成驗證並設定密碼。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
       document.getElementById('alert-success').classList.add('show');
       document.getElementById('register-form').reset();
+      showRegisterSuccessModal(data);
     } else {
       const msg = data.message || (data.errors ? Object.values(data.errors).join('、') : '發生錯誤，請稍後再試。');
       document.getElementById('alert-error-msg').textContent = msg;

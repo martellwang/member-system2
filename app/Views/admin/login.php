@@ -3,6 +3,7 @@
     <div>
       <div class="form-title">管理員登入</div>
       <div class="form-subtitle">登入後即可審核、編輯與管理會員資料</div>
+      <div class="field-hint">安全設定：後台閒置 <?= (int) ($adminTimeoutMinutes ?? 30) ?> 分鐘會自動登出。</div>
     </div>
 
     <form id="admin-login-form" novalidate>

@@ -14,8 +14,22 @@ function showError(message) {
 }
 
 function showSuccess() {
+  showSuccessMessage('會員資料已更新。');
+}
+
+function showSuccessMessage(message) {
+  const success = document.getElementById('edit-success');
   document.getElementById('edit-error').classList.remove('show');
-  document.getElementById('edit-success').classList.add('show');
+  success.textContent = message;
+  success.classList.add('show');
+}
+
+function normalizeTaiwanMobile(value) {
+  return value.replace(/[\s\-()]/g, '');
+}
+
+function validateTaiwanMobile(value) {
+  return /^09\d{8}$/.test(normalizeTaiwanMobile(value));
 }
 
 function validateIdNo(id) {
@@ -208,17 +222,117 @@ function bindRocDatePicker(textId) {
   renderCalendar();
 }
 
+function payloadFromForm(form) {
+  const formData = new FormData(form);
+  const payload = {};
+
+  formData.forEach((value, key) => {
+    if (key === 'payment_tools[]') {
+      payload.payment_tools ||= [];
+      payload.payment_tools.push(value);
+      return;
+    }
+    payload[key] = value;
+  });
+
+  payload.payment_tools ||= [];
+  return payload;
+}
+
+function bindAdminStoreManagement() {
+  document.querySelectorAll('[data-admin-store-item]').forEach((item) => {
+    const toggle = item.querySelector('[data-admin-store-toggle]');
+    const form = item.querySelector('[data-admin-store-form]');
+    const cancel = item.querySelector('[data-admin-store-cancel]');
+    const success = item.querySelector('.admin-store-success');
+    const error = item.querySelector('.admin-store-error');
+    const errorText = error?.querySelector('span');
+
+    function showStoreMessage(type, message = '') {
+      success?.classList.remove('show');
+      error?.classList.remove('show');
+      if (type === 'success' && success) {
+        success.textContent = message || '商店資料已更新。';
+        success.classList.add('show');
+      }
+      if (type === 'error' && error) {
+        if (errorText) errorText.textContent = message || '商店資料更新失敗。';
+        error.classList.add('show');
+      }
+    }
+
+    toggle?.addEventListener('click', () => {
+      form.hidden = !form.hidden;
+      toggle.textContent = form.hidden ? '編輯' : '收合';
+    });
+
+    cancel?.addEventListener('click', () => {
+      form.hidden = true;
+      if (toggle) toggle.textContent = '編輯';
+    });
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      showStoreMessage('');
+
+      const memberId = form.dataset.memberId;
+      const storeId = form.dataset.storeId;
+      const submit = form.querySelector('button[type="submit"]');
+      const originalText = submit?.textContent || '儲存商店';
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = '儲存中...';
+      }
+
+      try {
+        const res = await fetch(`${API}/admin/members/${memberId}/stores/${storeId}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payloadFromForm(form)),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.status === 401 || res.status === 409) {
+          window.location.href = `${APP_BASE}/admin/login`;
+          return;
+        }
+        if (!res.ok) {
+          const message = data.errors ? Object.values(data.errors).join('、') : (data.message || '商店資料更新失敗。');
+          showStoreMessage('error', message);
+          return;
+        }
+
+        showStoreMessage('success', data.message || '商店資料已更新。');
+      } catch {
+        showStoreMessage('error', '無法連線到伺服器。');
+      } finally {
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = originalText;
+        }
+      }
+    });
+  });
+}
+
 document.getElementById('member-edit-page-form').addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const id = document.getElementById('edit-id').value;
   const type = document.getElementById('edit-type').value;
+  const mobile = document.getElementById('edit-mobile').value.trim();
+  if (!validateTaiwanMobile(mobile)) {
+    showError('請輸入有效的台灣手機號碼，例如 0912345678 或 0912-345-678。');
+    return;
+  }
+
   const payload = {
     type,
     name: document.getElementById('edit-name').value.trim(),
     email: document.getElementById('edit-email').value.trim(),
+    phone_area_code: document.getElementById('edit-phone-area-code').value,
     phone: document.getElementById('edit-phone').value.trim(),
-    mobile_phone: document.getElementById('edit-mobile').value.trim(),
+    mobile_phone: normalizeTaiwanMobile(mobile),
     contact_address: document.getElementById('edit-address').value.trim(),
     password: document.getElementById('edit-password').value,
   };
@@ -233,7 +347,7 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
       showError('請輸入有效的民國發證日期，例如 113/01/02。');
       return;
     }
-    if (!validateRocDate(document.getElementById('edit-birth').value)) {
+    if (!validateRocDate(document.getElementById('edit-birth').value, true)) {
       showError('請輸入有效的民國出生日期，例如 083/05/15。');
       return;
     }
@@ -249,6 +363,7 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
     payload.company_name = document.getElementById('edit-company').value.trim();
     payload.website = document.getElementById('edit-website').value.trim();
     payload.industry = document.getElementById('edit-industry').value;
+    payload.is_dealer = document.getElementById('edit-is-dealer').checked ? 1 : 0;
   }
 
   try {
@@ -260,6 +375,10 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
     const data = await res.json().catch(() => ({}));
 
     if (res.status === 401) {
+      window.location.href = `${APP_BASE}/admin/login`;
+      return;
+    }
+    if (res.status === 409) {
       window.location.href = `${APP_BASE}/admin/login`;
       return;
     }
@@ -275,6 +394,43 @@ document.getElementById('member-edit-page-form').addEventListener('submit', asyn
     }, 450);
   } catch {
     showError('無法連線到伺服器。');
+  }
+});
+
+document.getElementById('resend-email-verification')?.addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  const id = document.getElementById('edit-id').value;
+  const originalText = button.textContent;
+
+  if (!confirm('確定要重新發送信箱驗證與設定密碼信嗎？')) {
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = '發送中...';
+
+  try {
+    const res = await fetch(`${API}/admin/members/${id}/resend-verification`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 401 || res.status === 409) {
+      window.location.href = `${APP_BASE}/admin/login`;
+      return;
+    }
+    if (!res.ok) {
+      throw new Error(data.message || '重新發送失敗。');
+    }
+
+    const devLink = data.verification_url ? ` 開發測試連結：${data.verification_url}` : '';
+    showSuccessMessage(`${data.message || '已重新發送信箱驗證。'}${devLink}`);
+  } catch (error) {
+    showError(error.message || '重新發送失敗。');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
   }
 });
 
@@ -317,3 +473,4 @@ switchEditType(document.getElementById('edit-type').value);
 bindRocDatePicker('edit-id-issue-date');
 bindRocDatePicker('edit-birth');
 bindDocumentPreview();
+bindAdminStoreManagement();

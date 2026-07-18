@@ -40,26 +40,46 @@ $googleSignup = $googleSignup ?? null;
       <div class="form-row">
         <div class="form-group">
           <label>電話號碼</label>
-          <input type="tel" id="f-phone" name="phone" placeholder="0912-345-678" />
+          <div class="phone-input-group">
+            <select id="f-phone-area-code" name="phone_area_code" aria-label="區域號碼">
+              <option value="">區碼</option>
+              <option value="02">02 北北基</option>
+              <option value="03">03 桃竹花宜</option>
+              <option value="037">037 苗栗</option>
+              <option value="04">04 中彰</option>
+              <option value="049">049 南投</option>
+              <option value="05">05 雲嘉</option>
+              <option value="06">06 南市澎湖</option>
+              <option value="07">07 高雄</option>
+              <option value="08">08 屏東</option>
+              <option value="089">089 臺東</option>
+              <option value="082">082 金門</option>
+              <option value="0826">0826 烏坵</option>
+              <option value="0836">0836 馬祖</option>
+            </select>
+            <input type="tel" id="f-phone" name="phone" placeholder="1234-5678" />
+          </div>
+          <div class="field-hint">市話選填，請先選區域號碼。</div>
         </div>
         <div class="form-group">
           <label>手機電話 <span class="required">*</span></label>
-          <input type="tel" id="f-mobile" name="mobile_phone" placeholder="0912-345-678" />
-          <div class="error-msg" id="err-mobile">請輸入手機電話</div>
+          <input type="tel" id="f-mobile" name="mobile_phone" placeholder="0912-345-678" maxlength="12" />
+          <div class="field-hint">請輸入台灣手機號碼，格式如 0912345678 或 0912-345-678。</div>
+          <div class="error-msg" id="err-mobile">請輸入有效的台灣手機號碼</div>
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group <?= $googleSignup ? 'form-group-wide' : '' ?>">
           <label>聯絡地址 <span class="required">*</span></label>
           <input type="text" id="f-address" name="contact_address" placeholder="請輸入聯絡地址" />
           <div class="error-msg" id="err-address">請輸入聯絡地址</div>
         </div>
-        <div class="form-group">
-          <label>密碼 <?= $googleSignup ? '' : '<span class="required">*</span>' ?></label>
-          <input type="password" id="f-pass" name="password" placeholder="至少 8 位字元" />
-          <div class="field-hint"><?= $googleSignup ? 'Google 註冊可留空' : '至少 8 位字元' ?></div>
-          <div class="error-msg" id="err-pass">密碼至少需要 8 位字元</div>
-        </div>
+        <?php if (!$googleSignup): ?>
+          <div class="form-group">
+            <label>信箱驗證</label>
+            <div class="readonly-note">送出註冊後，系統會寄出信箱驗證與設定密碼連結。</div>
+          </div>
+        <?php endif; ?>
       </div>
 
       <!-- 個人欄位 -->
@@ -134,10 +154,11 @@ $googleSignup = $googleSignup ?? null;
             <div class="error-msg" id="err-id-issue-type">請選擇身分證補領換類別</div>
           </div>
           <div class="form-group">
-            <label>出生日期</label>
+            <label>出生日期 <span class="required">*</span></label>
             <input type="text" id="f-birth" name="birth_date" placeholder="083/05/15" inputmode="numeric" />
             <div class="roc-picker" data-target="f-birth" aria-label="選擇出生日期"></div>
             <div class="field-hint">請輸入民國日期，格式：YYY/MM/DD</div>
+            <div class="error-msg" id="err-birth">請輸入有效的民國出生日期</div>
           </div>
         </div>
         <div class="form-row">
@@ -198,13 +219,36 @@ $googleSignup = $googleSignup ?? null;
             <option value="other">其他</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>法人會員身分</label>
+          <label class="checkbox-field">
+            <input type="checkbox" id="f-is-dealer" name="is_dealer" value="1" />
+            <span>經銷商</span>
+          </label>
+        </div>
       </div>
 
       <button type="button" class="btn btn-primary" onclick="submitRegister()">立即註冊</button>
 
-      <div class="alert alert-success" id="alert-success">✅ 註冊成功！請至信箱收取驗證信，完成帳號啟用。</div>
+      <div class="alert alert-success" id="alert-success">✅ 註冊資料已送出，請至信箱完成驗證並設定密碼。</div>
       <div class="alert alert-danger"  id="alert-error">❌ <span id="alert-error-msg">發生錯誤，請稍後再試。</span></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="register-success-modal" hidden>
+  <div class="mini-modal" role="dialog" aria-modal="true" aria-labelledby="register-success-title">
+    <div class="result-icon ok">✓</div>
+    <div class="form-title" id="register-success-title">註冊資料已送出</div>
+    <div class="form-subtitle" id="register-success-message">
+      請先至電子郵件信箱收取驗證信，完成信箱驗證與密碼設定。
+    </div>
+    <div class="countdown-note">
+      <strong id="register-success-countdown">10</strong> 秒後前往註冊資料填寫完成頁
+    </div>
+    <div class="modal-action-row">
+      <button type="button" class="btn btn-primary" id="register-success-next">立即前往</button>
+    </div>
   </div>
 </div>
 
