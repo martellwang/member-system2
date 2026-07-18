@@ -1,25 +1,21 @@
-// register.js — 會員註冊前端邏輯
+// edit-member.js — 單頁會員編輯
 const APP_BASE = document.querySelector('meta[name="app-base"]')?.content || '';
 const API = `${APP_BASE}/api`;
 
-function switchType(type) {
-  document.getElementById('member-type').value = type;
-  document.getElementById('personal-fields').style.display = type === 'personal' ? '' : 'none';
-  document.getElementById('company-fields').style.display  = type === 'company'  ? '' : 'none';
-  document.getElementById('btn-personal').classList.toggle('active', type === 'personal');
-  document.getElementById('btn-company').classList.toggle('active', type === 'company');
-  clearErrors();
+function switchEditType(type) {
+  document.getElementById('edit-personal-fields').style.display = type === 'personal' ? '' : 'none';
+  document.getElementById('edit-company-fields').style.display = type === 'company' ? '' : 'none';
 }
 
-function clearErrors() {
-  document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('show'));
-  document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
-  ['alert-success','alert-error'].forEach(id => document.getElementById(id).classList.remove('show'));
+function showError(message) {
+  document.getElementById('edit-success').classList.remove('show');
+  document.getElementById('edit-error-msg').textContent = message;
+  document.getElementById('edit-error').classList.add('show');
 }
 
-function showError(fieldId, msgId) {
-  document.getElementById(fieldId).classList.add('error');
-  document.getElementById(msgId).classList.add('show');
+function showSuccess() {
+  document.getElementById('edit-error').classList.remove('show');
+  document.getElementById('edit-success').classList.add('show');
 }
 
 function validateIdNo(id) {
@@ -40,17 +36,6 @@ function validateIdNo(id) {
   sum += Number(value[9]);
 
   return sum % 10 === 0;
-}
-
-function validateTaxId(id) {
-  return /^\d{8}$/.test(id);
-}
-
-function validateUpload(input) {
-  const file = input.files[0];
-  if (!file) return false;
-  const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
-  return allowed.includes(file.type) && file.size <= 5 * 1024 * 1024;
 }
 
 function validateRocDate(value, required = false) {
@@ -223,98 +208,112 @@ function bindRocDatePicker(textId) {
   renderCalendar();
 }
 
-function validate() {
-  let valid = true;
-  const type = document.getElementById('member-type').value;
-  const name  = document.getElementById('f-name').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  const mobile = document.getElementById('f-mobile').value.trim();
-  const address = document.getElementById('f-address').value.trim();
-  const pass  = document.getElementById('f-pass').value;
-  const googleId = document.getElementById('f-google-id').value;
+document.getElementById('member-edit-page-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
 
-  if (!name)                            { showError('f-name', 'err-name');  valid = false; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('f-email', 'err-email'); valid = false; }
-  if (!mobile)                          { showError('f-mobile', 'err-mobile'); valid = false; }
-  if (!address)                         { showError('f-address', 'err-address'); valid = false; }
-  if (!googleId && pass.length < 8)     { showError('f-pass', 'err-pass');  valid = false; }
-  if (googleId && pass && pass.length < 8) { showError('f-pass', 'err-pass'); valid = false; }
+  const id = document.getElementById('edit-id').value;
+  const type = document.getElementById('edit-type').value;
+  const payload = {
+    type,
+    name: document.getElementById('edit-name').value.trim(),
+    email: document.getElementById('edit-email').value.trim(),
+    phone: document.getElementById('edit-phone').value.trim(),
+    mobile_phone: document.getElementById('edit-mobile').value.trim(),
+    contact_address: document.getElementById('edit-address').value.trim(),
+    password: document.getElementById('edit-password').value,
+  };
 
   if (type === 'personal') {
-    const idno = document.getElementById('f-idno').value.trim();
-    if (!validateIdNo(idno)) { showError('f-idno', 'err-idno'); valid = false; }
-    if (!validateRocDate(document.getElementById('f-id-issue-date').value, true)) { showError('f-id-issue-date', 'err-id-issue-date'); valid = false; }
-    if (!validateRocDate(document.getElementById('f-birth').value)) { document.getElementById('f-birth').classList.add('error'); valid = false; }
-    if (!document.getElementById('f-id-issue-place').value.trim()) { showError('f-id-issue-place', 'err-id-issue-place'); valid = false; }
-    if (!document.getElementById('f-id-issue-type').value) { showError('f-id-issue-type', 'err-id-issue-type'); valid = false; }
-    if (!validateUpload(document.getElementById('f-id-front'))) { showError('f-id-front', 'err-id-front'); valid = false; }
-    if (!validateUpload(document.getElementById('f-id-back'))) { showError('f-id-back', 'err-id-back'); valid = false; }
+    const idno = document.getElementById('edit-idno').value.trim().toUpperCase();
+    if (!validateIdNo(idno)) {
+      showError('請輸入有效的身分證號（含檢核碼）。');
+      return;
+    }
+    if (!validateRocDate(document.getElementById('edit-id-issue-date').value, true)) {
+      showError('請輸入有效的民國發證日期，例如 113/01/02。');
+      return;
+    }
+    if (!validateRocDate(document.getElementById('edit-birth').value)) {
+      showError('請輸入有效的民國出生日期，例如 083/05/15。');
+      return;
+    }
+    payload.id_number = idno;
+    payload.line_id = document.getElementById('edit-line-id').value.trim();
+    payload.id_issue_date = document.getElementById('edit-id-issue-date').value;
+    payload.id_issue_place = document.getElementById('edit-id-issue-place').value.trim();
+    payload.id_issue_type = document.getElementById('edit-id-issue-type').value;
+    payload.birth_date = document.getElementById('edit-birth').value;
+    payload.gender = document.getElementById('edit-gender').value;
   } else {
-    const taxid   = document.getElementById('f-taxid').value.trim();
-    const company = document.getElementById('f-company').value.trim();
-    if (!validateTaxId(taxid)) { showError('f-taxid', 'err-taxid'); valid = false; }
-    if (!company)              { showError('f-company', 'err-company'); valid = false; }
-  }
-  return valid;
-}
-
-async function submitRegister() {
-  clearErrors();
-  if (!validate()) return;
-
-  const type = document.getElementById('member-type').value;
-  const payload = new FormData();
-  payload.append('type', type);
-  payload.append('name', document.getElementById('f-name').value.trim());
-  payload.append('email', document.getElementById('f-email').value.trim());
-  payload.append('phone', document.getElementById('f-phone').value.trim());
-  payload.append('mobile_phone', document.getElementById('f-mobile').value.trim());
-  payload.append('contact_address', document.getElementById('f-address').value.trim());
-  payload.append('password', document.getElementById('f-pass').value);
-  payload.append('google_id', document.getElementById('f-google-id').value);
-
-  if (type === 'personal') {
-    payload.append('id_number', document.getElementById('f-idno').value.trim().toUpperCase());
-    payload.append('line_id', document.getElementById('f-line-id').value.trim());
-    payload.append('id_issue_date', document.getElementById('f-id-issue-date').value);
-    payload.append('id_issue_place', document.getElementById('f-id-issue-place').value.trim());
-    payload.append('id_issue_type', document.getElementById('f-id-issue-type').value);
-    payload.append('birth_date', document.getElementById('f-birth').value);
-    payload.append('gender', document.getElementById('f-gender').value);
-    payload.append('id_card_front', document.getElementById('f-id-front').files[0]);
-    payload.append('id_card_back', document.getElementById('f-id-back').files[0]);
-  } else {
-    payload.append('tax_id', document.getElementById('f-taxid').value.trim());
-    payload.append('company_name', document.getElementById('f-company').value.trim());
-    payload.append('website', document.getElementById('f-website').value.trim());
-    payload.append('industry', document.getElementById('f-industry').value);
+    payload.tax_id = document.getElementById('edit-taxid').value.trim();
+    payload.company_name = document.getElementById('edit-company').value.trim();
+    payload.website = document.getElementById('edit-website').value.trim();
+    payload.industry = document.getElementById('edit-industry').value;
   }
 
   try {
-    const res = await fetch(`${API}/members/register`, {
+    const res = await fetch(`${API}/admin/members/${id}/update`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json' },
-      body: payload
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
-    if (res.ok) {
-      const verifyLink = data.verification_url
-        ? `<a href="${data.verification_url}" target="_blank" rel="noopener">開啟驗證連結</a>`
-        : '';
-      document.getElementById('alert-success').innerHTML = `註冊成功，請至信箱完成驗證。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
-      document.getElementById('alert-success').classList.add('show');
-      document.getElementById('register-form').reset();
-    } else {
-      const msg = data.message || (data.errors ? Object.values(data.errors).join('、') : '發生錯誤，請稍後再試。');
-      document.getElementById('alert-error-msg').textContent = msg;
-      document.getElementById('alert-error').classList.add('show');
+    if (res.status === 401) {
+      window.location.href = `${APP_BASE}/admin/login`;
+      return;
     }
-  } catch (e) {
-    document.getElementById('alert-error-msg').textContent = '無法連線至伺服器，請稍後再試。';
-    document.getElementById('alert-error').classList.add('show');
+    if (!res.ok) {
+      const message = data.errors ? Object.values(data.errors).join('、') : (data.message || '更新失敗。');
+      showError(message);
+      return;
+    }
+
+    showSuccess();
+    window.setTimeout(() => {
+      window.location.href = `${APP_BASE}/admin`;
+    }, 450);
+  } catch {
+    showError('無法連線到伺服器。');
   }
+});
+
+function bindDocumentPreview() {
+  const modal = document.getElementById('document-preview-modal');
+  const frame = document.getElementById('document-preview-frame');
+  const title = document.getElementById('document-preview-title');
+  if (!modal || !frame || !title) return;
+
+  function closePreview() {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    frame.removeAttribute('src');
+  }
+
+  document.querySelectorAll('.document-preview-link').forEach((button) => {
+    button.addEventListener('click', () => {
+      title.textContent = button.dataset.documentTitle || '身分證電子檔';
+      frame.src = button.dataset.documentUrl;
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+    });
+  });
+
+  document.getElementById('document-preview-close')?.addEventListener('click', closePreview);
+  document.getElementById('document-preview-close-footer')?.addEventListener('click', closePreview);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closePreview();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('show')) {
+      closePreview();
+    }
+  });
 }
 
-bindRocDatePicker('f-id-issue-date');
-bindRocDatePicker('f-birth');
+switchEditType(document.getElementById('edit-type').value);
+bindRocDatePicker('edit-id-issue-date');
+bindRocDatePicker('edit-birth');
+bindDocumentPreview();

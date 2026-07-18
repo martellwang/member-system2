@@ -1,56 +1,78 @@
 // admin.js — 後台管理前端邏輯
-const BASE_PATH = (() => {
-  const marker = '/public';
-  const index = window.location.pathname.indexOf(marker);
-  return index >= 0 ? window.location.pathname.slice(0, index + marker.length) : '';
-})();
-const API = `${BASE_PATH}/api`;
+const APP_BASE = document.querySelector('meta[name="app-base"]')?.content || '';
+const API = `${APP_BASE}/api`;
 const PER_PAGE = 10;
+
 let allMembers = [];
-let filtered   = [];
+let filtered = [];
 let currentPage = 1;
 let currentFilter = 'all';
+let currentKeyword = '';
+
+async function requestJson(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Accept': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const data = await res.json().catch(() => ({}));
+
+  if (res.status === 401) {
+    window.location.href = `${APP_BASE}/admin/login`;
+    throw new Error('請先登入管理後台。');
+  }
+  if (!res.ok) {
+    const error = new Error(data.message || '操作失敗。');
+    error.details = data.errors || null;
+    throw error;
+  }
+
+  return data;
+}
 
 async function loadMembers() {
   try {
-    const res  = await fetch(`${API}/admin/members`, { headers: { 'Accept': 'application/json' } });
-    allMembers = await res.json();
-    applyFilter(currentFilter);
+    allMembers = await requestJson(`${API}/admin/members`);
+    applyFilter(currentFilter, false);
     updateStats();
-  } catch {
-    // 開發期 mock 資料
-    allMembers = [
-      { id:1, name:'王小明', type:'personal', id_number:'A123456789', email:'ming@mail.com', phone:'0912-111-222', company_name:'', website:'', status:'active' },
-      { id:2, name:'林美華', type:'personal', id_number:'B234567890', email:'hua@mail.com',  phone:'0922-333-444', company_name:'', website:'', status:'active' },
-      { id:3, name:'張志豪', type:'personal', id_number:'C345678901', email:'hao@mail.com',  phone:'0933-555-666', company_name:'', website:'', status:'pending' },
-      { id:4, name:'陳大文', type:'company',  id_number:'12345678',   email:'admin@techco.com', phone:'02-1234-5678', company_name:'科技股份有限公司',  website:'https://techco.com', status:'active' },
-      { id:5, name:'劉資訊', type:'company',  id_number:'87654321',   email:'info@infosoft.com',phone:'02-8765-4321', company_name:'資訊軟體有限公司',  website:'https://infosoft.com.tw', status:'pending' },
-      { id:6, name:'黃貿易', type:'company',  id_number:'11223344',   email:'biz@trade.com',   phone:'04-9876-5432', company_name:'全球貿易企業社',      website:'https://globaltrade.tw', status:'active' },
-    ];
-    applyFilter(currentFilter);
-    updateStats();
+  } catch (error) {
+    showTableMessage(error.message || '資料載入失敗。');
   }
 }
 
 function updateStats() {
   const personal = allMembers.filter(m => m.type === 'personal').length;
-  const company  = allMembers.filter(m => m.type === 'company').length;
-  const pending  = allMembers.filter(m => m.status === 'pending').length;
-  const total    = allMembers.length;
-  document.getElementById('stat-total').textContent    = total;
+  const company = allMembers.filter(m => m.type === 'company').length;
+  const pending = allMembers.filter(m => m.status === 'pending').length;
+  const suspended = allMembers.filter(m => m.status === 'suspended').length;
+  const total = allMembers.length;
+
+  document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-personal').textContent = personal;
-  document.getElementById('stat-company').textContent  = company;
-  document.getElementById('stat-pending').textContent  = pending;
-  document.getElementById('stat-personal-pct').textContent = total ? Math.round(personal/total*100)+'%' : '—';
-  document.getElementById('stat-company-pct').textContent  = total ? Math.round(company/total*100)+'%'  : '—';
+  document.getElementById('stat-company').textContent = company;
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-suspended').textContent = suspended;
+  document.getElementById('stat-personal-pct').textContent = total ? `${Math.round(personal / total * 100)}%` : '—';
+  document.getElementById('stat-company-pct').textContent = total ? `${Math.round(company / total * 100)}%` : '—';
 }
 
-function applyFilter(type) {
+function applyFilter(type, resetPage = true) {
   currentFilter = type;
-  currentPage = 1;
-  if (type === 'all')     filtered = [...allMembers];
-  else if (type === 'pending') filtered = allMembers.filter(m => m.status === 'pending');
-  else                    filtered = allMembers.filter(m => m.type === type);
+  if (resetPage) currentPage = 1;
+
+  const byFilter = type === 'all' ? allMembers :
+    ['pending', 'suspended'].includes(type) ? allMembers.filter(m => m.status === type) :
+    allMembers.filter(m => m.type === type);
+
+  const kw = currentKeyword.trim().toLowerCase();
+  filtered = kw ? byFilter.filter(m =>
+    m.name.toLowerCase().includes(kw) ||
+    m.email.toLowerCase().includes(kw) ||
+    (m.company_name || '').toLowerCase().includes(kw) ||
+    (m.id_number || '').toLowerCase().includes(kw) ||
+    (m.line_id || '').toLowerCase().includes(kw) ||
+    (m.tax_id || '').toLowerCase().includes(kw)
+  ) : [...byFilter];
+
   renderTable();
 }
 
@@ -61,76 +83,148 @@ function filter(type, btn) {
 }
 
 function search(q) {
-  const kw = q.trim().toLowerCase();
-  currentPage = 1;
-  if (!kw) { applyFilter(currentFilter); return; }
-  const base = currentFilter === 'all' ? allMembers :
-               currentFilter === 'pending' ? allMembers.filter(m => m.status === 'pending') :
-               allMembers.filter(m => m.type === currentFilter);
-  filtered = base.filter(m =>
-    m.name.toLowerCase().includes(kw) ||
-    m.email.toLowerCase().includes(kw) ||
-    (m.company_name||'').toLowerCase().includes(kw) ||
-    (m.id_number||'').toLowerCase().includes(kw)
-  );
-  renderTable();
+  currentKeyword = q;
+  applyFilter(currentFilter);
+}
+
+function showTableMessage(message) {
+  document.getElementById('member-tbody').innerHTML =
+    `<tr><td colspan="7" class="empty-cell">${escapeHtml(message)}</td></tr>`;
+  document.getElementById('page-info').textContent = '—';
+  document.getElementById('page-btns').innerHTML = '';
 }
 
 function renderTable() {
   const start = (currentPage - 1) * PER_PAGE;
-  const page  = filtered.slice(start, start + PER_PAGE);
+  const page = filtered.slice(start, start + PER_PAGE);
   const tbody = document.getElementById('member-tbody');
+  const duplicateIdNumbers = getDuplicateIdNumbers();
 
   if (!page.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#888">沒有符合的會員</td></tr>';
-  } else {
-    tbody.innerHTML = page.map(m => {
-      const isP   = m.type === 'personal';
-      const init  = m.name.slice(0,2);
-      const idLabel = isP ? '身分證：' : '統編：';
-      const compInfo = isP ? '—' :
-        `<span style="display:block;font-weight:500">${m.company_name}</span>
-         <a href="${m.website}" target="_blank" style="font-size:11px">${m.website||'—'}</a>`;
-      return `<tr>
-        <td><span class="avatar ${isP?'av-p':'av-c'}">${init}</span>${m.name}</td>
-        <td><span class="badge ${isP?'badge-personal':'badge-company'}">${isP?'👤 個人':'🏢 公司'}</span></td>
-        <td style="font-family:monospace;font-size:12px;color:#555">${idLabel}${m.id_number}</td>
-        <td><span style="display:block">${m.email}</span><span style="font-size:11px;color:#888">${m.phone||'—'}</span></td>
-        <td style="font-size:12px">${compInfo}</td>
-        <td><span class="badge ${m.status==='active'?'badge-active':'badge-pending'}">${m.status==='active'?'✅ 啟用':'⏳ 待審'}</span></td>
-        <td>
-          <button class="btn btn-sm btn-outline" onclick="editMember(${m.id})">編輯</button>
-          ${m.status==='pending'?`<button class="btn btn-sm btn-success" style="margin-left:4px" onclick="approve(${m.id})">審核</button>`:''}
-        </td>
-      </tr>`;
-    }).join('');
+    showTableMessage('沒有符合的會員');
+    return;
   }
 
-  // pagination
+  tbody.innerHTML = page.map(m => {
+    const isPersonal = m.type === 'personal';
+    const init = escapeHtml((m.name || '?').slice(0, 2));
+    const idValue = isPersonal ? m.id_number : m.tax_id;
+    const idLabel = isPersonal ? '身分證：' : '統編：';
+    const duplicateWarning = isPersonal && idValue && duplicateIdNumbers.has(idValue)
+      ? '<span class="duplicate-warning">身分證號重複</span>'
+      : '';
+    const lineInfo = isPersonal
+      ? `<span class="muted">LINE：${m.line_id ? escapeHtml(m.line_id) : '—'}</span>
+         ${m.line_id ? `<a class="small-link line-friend-link" href="${lineFriendUrl(m.line_id)}">加入 LINE 好友</a>` : ''}`
+      : '';
+    const companyInfo = isPersonal ? '—' :
+      `<span class="company-name">${escapeHtml(m.company_name || '—')}</span>
+       ${m.website ? `<a href="${escapeAttr(m.website)}" target="_blank" rel="noopener" class="small-link">${escapeHtml(m.website)}</a>` : '<span class="muted">—</span>'}`;
+
+    const statusMeta = getStatusMeta(m.status);
+
+    return `<tr>
+      <td><span class="avatar ${isPersonal ? 'av-p' : 'av-c'}">${init}</span>${escapeHtml(m.name)}</td>
+      <td><span class="badge ${isPersonal ? 'badge-personal' : 'badge-company'}">${isPersonal ? '個人' : '公司'}</span></td>
+      <td class="mono-cell">${idLabel}${escapeHtml(idValue || '—')}${duplicateWarning}</td>
+      <td><span class="cell-main">${escapeHtml(m.email)}</span><span class="muted">手機：${escapeHtml(m.mobile_phone || '—')}</span><span class="muted">電話：${escapeHtml(m.phone || '—')}</span>${lineInfo}</td>
+      <td>${companyInfo}</td>
+      <td><span class="badge ${statusMeta.className}">${statusMeta.label}</span></td>
+      <td class="action-cell">
+        <button class="btn btn-sm btn-outline" onclick="editMember(${m.id})">編輯</button>
+        ${m.status !== 'active'
+          ? `<button class="btn btn-sm btn-success" onclick="approve(${m.id})">審核</button>`
+          : `<button class="btn btn-sm btn-outline" onclick="suspendMember(${m.id})">停用</button>`}
+        <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.id})">刪除</button>
+      </td>
+    </tr>`;
+  }).join('');
+
   const total = filtered.length;
   const pages = Math.ceil(total / PER_PAGE);
   document.getElementById('page-info').textContent =
-    `顯示 ${Math.min(start+1, total)}–${Math.min(start+PER_PAGE, total)}，共 ${total} 筆`;
+    `顯示 ${Math.min(start + 1, total)}–${Math.min(start + PER_PAGE, total)}，共 ${total} 筆`;
 
-  const btns = document.getElementById('page-btns');
-  btns.innerHTML = Array.from({length: pages}, (_, i) =>
-    `<div class="page-num ${i+1===currentPage?'cur':''}" onclick="goPage(${i+1})">${i+1}</div>`
+  document.getElementById('page-btns').innerHTML = Array.from({ length: pages }, (_, i) =>
+    `<button type="button" class="page-num ${i + 1 === currentPage ? 'cur' : ''}" onclick="goPage(${i + 1})">${i + 1}</button>`
   ).join('');
 }
 
-function goPage(n) { currentPage = n; renderTable(); }
+function getDuplicateIdNumbers() {
+  const counts = new Map();
+  allMembers
+    .filter(m => m.type === 'personal' && m.id_number)
+    .forEach(m => counts.set(m.id_number, (counts.get(m.id_number) || 0) + 1));
+
+  return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([idNumber]) => idNumber));
+}
+
+function lineFriendUrl(lineId) {
+  return `line://ti/p/~${encodeURIComponent(lineId)}`;
+}
+
+function getStatusMeta(status) {
+  if (status === 'active') return { label: '啟用', className: 'badge-active' };
+  if (status === 'suspended') return { label: '停用', className: 'badge-suspended' };
+  return { label: '待審', className: 'badge-pending' };
+}
+
+function goPage(n) {
+  currentPage = n;
+  renderTable();
+}
 
 async function approve(id) {
+  await runMemberAction(`${API}/admin/members/${id}/approve`, '已審核通過。');
+}
+
+async function suspendMember(id) {
+  await runMemberAction(`${API}/admin/members/${id}/suspend`, '已停用帳號。');
+}
+
+async function deleteMember(id) {
+  if (!confirm('確定要刪除這位會員嗎？此操作無法復原。')) return;
+  await runMemberAction(`${API}/admin/members/${id}/delete`, '已刪除會員。');
+}
+
+async function runMemberAction(url, successMessage) {
   try {
-    await fetch(`${API}/admin/members/${id}/approve`, { method: 'PATCH', headers: {'Accept':'application/json'} });
-  } catch {}
-  const m = allMembers.find(x => x.id === id);
-  if (m) { m.status = 'active'; applyFilter(currentFilter); updateStats(); }
+    await requestJson(url, { method: 'POST' });
+    await loadMembers();
+    setNotice(successMessage);
+  } catch (error) {
+    alert(error.message || '操作失敗。');
+  }
 }
 
 function editMember(id) {
-  const m = allMembers.find(x => x.id === id);
-  alert(`編輯會員：${m.name}\n（實際系統會開啟編輯 Modal）`);
+  window.location.href = `${APP_BASE}/admin/members/${id}/edit`;
+}
+
+async function logoutAdmin() {
+  try {
+    await requestJson(`${API}/admin/logout`, { method: 'POST' });
+  } finally {
+    window.location.href = `${APP_BASE}/admin/login`;
+  }
+}
+
+function setNotice(message) {
+  document.getElementById('page-info').textContent = message;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }[char]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#096;');
 }
 
 loadMembers();

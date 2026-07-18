@@ -1,7 +1,10 @@
 <div class="container-wide">
   <div class="admin-header">
     <h1>後台管理</h1>
-    <span class="admin-info">管理員：admin@system.com</span>
+    <div class="admin-actions">
+      <span class="admin-info">管理員：<?= htmlspecialchars($_SESSION['admin']['email'] ?? ADMIN_EMAIL) ?></span>
+      <button class="btn btn-sm btn-outline" onclick="logoutAdmin()">登出</button>
+    </div>
   </div>
 
   <div class="stats-grid">
@@ -25,6 +28,11 @@
       <div class="stat-value" id="stat-pending">—</div>
       <div class="stat-sub" style="color:#BA7517;">需要處理</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">已停用</div>
+      <div class="stat-value" id="stat-suspended">—</div>
+      <div class="stat-sub" style="color:#C0392B;">暫停服務</div>
+    </div>
   </div>
 
   <div class="table-card">
@@ -33,6 +41,7 @@
       <button class="filter-btn" onclick="filter('personal', this)">個人用戶</button>
       <button class="filter-btn" onclick="filter('company', this)">商業公司</button>
       <button class="filter-btn" onclick="filter('pending', this)">待審核</button>
+      <button class="filter-btn" onclick="filter('suspended', this)">已停用</button>
       <input type="text" class="search-box" placeholder="搜尋會員..." oninput="search(this.value)" />
     </div>
 
@@ -60,4 +69,4 @@
   </div>
 </div>
 
-<script src="/assets/js/admin.js"></script>
+<script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/admin.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/admin.js') ?>"></script>

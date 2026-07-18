@@ -13,11 +13,21 @@ CREATE TABLE IF NOT EXISTS `members` (
   `name`                  VARCHAR(100) NOT NULL,
   `email`                 VARCHAR(255) NOT NULL UNIQUE,
   `phone`                 VARCHAR(20)  DEFAULT NULL,
+  `mobile_phone`          VARCHAR(20)  DEFAULT NULL COMMENT '手機電話',
+  `contact_address`       VARCHAR(255) DEFAULT NULL COMMENT '聯絡地址',
   `password`              VARCHAR(255) NOT NULL,
-  `status`                ENUM('active','pending') NOT NULL DEFAULT 'pending',
+  `status`                ENUM('active','pending','suspended') NOT NULL DEFAULT 'pending',
+  `auth_provider`         VARCHAR(20)  NOT NULL DEFAULT 'local',
+  `google_id`             VARCHAR(64)  DEFAULT NULL,
 
   -- 個人用戶欄位
   `id_number`             VARCHAR(10)  DEFAULT NULL COMMENT '身分證號',
+  `line_id`               VARCHAR(100) DEFAULT NULL COMMENT 'Line ID',
+  `id_card_front_path`    VARCHAR(255) DEFAULT NULL COMMENT '身分證正面電子檔',
+  `id_card_back_path`     VARCHAR(255) DEFAULT NULL COMMENT '身分證反面電子檔',
+  `id_issue_date`         DATE         DEFAULT NULL COMMENT '身分證發證日期',
+  `id_issue_place`        VARCHAR(50)  DEFAULT NULL COMMENT '身分證發證地點',
+  `id_issue_type`         ENUM('first','replace','renew') DEFAULT NULL COMMENT '初發 / 補發 / 換發',
   `birth_date`            DATE         DEFAULT NULL,
   `gender`                ENUM('male','female','other') DEFAULT NULL,
 

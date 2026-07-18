@@ -15,9 +15,9 @@ class Member extends Model
         $params = [];
 
         if ($keyword) {
-            $sql .= " AND (`name` LIKE ? OR `email` LIKE ? OR `id_number` LIKE ? OR `tax_id` LIKE ? OR `company_name` LIKE ?)";
+            $sql .= " AND (`name` LIKE ? OR `email` LIKE ? OR `id_number` LIKE ? OR `line_id` LIKE ? OR `tax_id` LIKE ? OR `company_name` LIKE ?)";
             $kw = "%{$keyword}%";
-            array_push($params, $kw, $kw, $kw, $kw, $kw);
+            array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
         }
         if ($type)   { $sql .= " AND `type` = ?";   $params[] = $type; }
         if ($status) { $sql .= " AND `status` = ?"; $params[] = $status; }
@@ -37,7 +37,8 @@ class Member extends Model
                 SUM(type = 'personal') AS personal,
                 SUM(type = 'company')  AS company,
                 SUM(status = 'pending') AS pending,
-                SUM(status = 'active')  AS active
+                SUM(status = 'active')  AS active,
+                SUM(status = 'suspended') AS suspended
             FROM `members`
         ");
         return $stmt->fetch();
@@ -52,26 +53,44 @@ class Member extends Model
     }
 
     /** 檢查 Email 是否已存在 */
-    public function emailExists(string $email): bool
+    public function emailExists(string $email, ?int $excludeId = null): bool
     {
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM `members` WHERE `email` = ?");
-        $stmt->execute([$email]);
+        $sql = "SELECT COUNT(*) FROM `members` WHERE `email` = ?";
+        $params = [$email];
+        if ($excludeId !== null) {
+            $sql .= " AND `id` <> ?";
+            $params[] = $excludeId;
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return (bool) $stmt->fetchColumn();
     }
 
     /** 檢查身分證號是否已存在 */
-    public function idNumberExists(string $idNumber): bool
+    public function idNumberExists(string $idNumber, ?int $excludeId = null): bool
     {
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM `members` WHERE `id_number` = ?");
-        $stmt->execute([$idNumber]);
+        $sql = "SELECT COUNT(*) FROM `members` WHERE `id_number` = ?";
+        $params = [$idNumber];
+        if ($excludeId !== null) {
+            $sql .= " AND `id` <> ?";
+            $params[] = $excludeId;
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return (bool) $stmt->fetchColumn();
     }
 
     /** 檢查統一編號是否已存在 */
-    public function taxIdExists(string $taxId): bool
+    public function taxIdExists(string $taxId, ?int $excludeId = null): bool
     {
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM `members` WHERE `tax_id` = ?");
-        $stmt->execute([$taxId]);
+        $sql = "SELECT COUNT(*) FROM `members` WHERE `tax_id` = ?";
+        $params = [$taxId];
+        if ($excludeId !== null) {
+            $sql .= " AND `id` <> ?";
+            $params[] = $excludeId;
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return (bool) $stmt->fetchColumn();
     }
 }

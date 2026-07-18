@@ -5,3 +5,5 @@ node_modules/
 database/local-*.sql
 database/real-*.sql
 database/*real*.sql
+storage/id-documents/*
+!storage/id-documents/.gitkeep
