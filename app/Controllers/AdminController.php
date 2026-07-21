@@ -739,13 +739,18 @@ class AdminController extends Controller
         $this->requireLogin();
 
         $member = $this->member->find((int) $id);
-        if (!$member || !in_array($side, ['front', 'back'], true)) {
+        if (!$member || !in_array($side, ['front', 'back', 'second'], true)) {
             http_response_code(404);
             echo '找不到檔案。';
             return;
         }
 
-        $field = $side === 'front' ? 'id_card_front_path' : 'id_card_back_path';
+        $fields = [
+            'front' => 'id_card_front_path',
+            'back' => 'id_card_back_path',
+            'second' => 'second_id_doc_path',
+        ];
+        $field = $fields[$side];
         $relativePath = $member[$field] ?? '';
         $baseDir = realpath(BASE_PATH . '/storage/id-documents');
         $filePath = realpath(BASE_PATH . '/' . $relativePath);

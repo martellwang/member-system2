@@ -261,6 +261,7 @@ function validate() {
     if (!document.getElementById('f-id-issue-type').value) { showError('f-id-issue-type', 'err-id-issue-type'); valid = false; }
     if (!validateUpload(document.getElementById('f-id-front'))) { showError('f-id-front', 'err-id-front'); valid = false; }
     if (!validateUpload(document.getElementById('f-id-back'))) { showError('f-id-back', 'err-id-back'); valid = false; }
+    if (!validateUpload(document.getElementById('f-second-id-doc'))) { showError('f-second-id-doc', 'err-second-id-doc'); valid = false; }
   } else {
     const taxid   = document.getElementById('f-taxid').value.trim();
     const company = document.getElementById('f-company').value.trim();
@@ -338,6 +339,7 @@ async function submitRegister() {
     payload.append('gender', document.getElementById('f-gender').value);
     payload.append('id_card_front', document.getElementById('f-id-front').files[0]);
     payload.append('id_card_back', document.getElementById('f-id-back').files[0]);
+    payload.append('second_id_doc', document.getElementById('f-second-id-doc').files[0]);
   } else {
     payload.append('tax_id', document.getElementById('f-taxid').value.trim());
     payload.append('company_name', document.getElementById('f-company').value.trim());

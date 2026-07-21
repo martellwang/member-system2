@@ -190,6 +190,12 @@ $googleSignup = $googleSignup ?? null;
             <div class="error-msg" id="err-id-back">請上傳身分證反面電子檔</div>
           </div>
         </div>
+        <div class="form-group">
+          <label>第二證件電子檔 <span class="required">*</span></label>
+          <input type="file" id="f-second-id-doc" name="second_id_doc" accept=".jpg,.jpeg,.png,.pdf" />
+          <div class="field-hint">可用第二證件：有照片的健保卡或駕照。支援 JPG、PNG、PDF，單檔上限 5MB。</div>
+          <div class="error-msg" id="err-second-id-doc">請上傳第二證件電子檔</div>
+        </div>
       </div>
 
       <!-- 公司欄位 -->

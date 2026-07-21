@@ -526,6 +526,16 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
           <?php else: ?>
             <em>未上傳反面</em>
           <?php endif; ?>
+          <?php if (!empty($member['second_id_doc_path'])): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="第二證件"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/second"
+            >查看第二證件</button>
+          <?php else: ?>
+            <em>未上傳第二證件</em>
+          <?php endif; ?>
         </div>
       </div>
 

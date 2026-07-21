@@ -66,6 +66,7 @@ class MemberController extends Controller
             $uploadErrors = [];
             $frontPath = $this->storeIdDocument('id_card_front', $uploadErrors);
             $backPath = $this->storeIdDocument('id_card_back', $uploadErrors);
+            $secondIdDocPath = $this->storeIdDocument('second_id_doc', $uploadErrors);
 
             if ($uploadErrors) {
                 $this->json(['errors' => $uploadErrors], 422);
@@ -74,10 +75,12 @@ class MemberController extends Controller
 
             $data['id_card_front_path'] = $frontPath;
             $data['id_card_back_path'] = $backPath;
+            $data['second_id_doc_path'] = $secondIdDocPath;
         } else {
             $data['line_id'] = null;
             $data['id_card_front_path'] = null;
             $data['id_card_back_path'] = null;
+            $data['second_id_doc_path'] = null;
             $data['is_dealer'] = !empty($data['is_dealer']) ? 1 : 0;
         }
 
@@ -334,6 +337,7 @@ class MemberController extends Controller
             }
             $this->validateIdDocument('id_card_front', 'id_card_front', $errors);
             $this->validateIdDocument('id_card_back', 'id_card_back', $errors);
+            $this->validateIdDocument('second_id_doc', 'second_id_doc', $errors, '請上傳第二證件電子檔');
             if (!$this->parseRocDate($data['id_issue_date'] ?? '')) {
                 $errors['id_issue_date'] = '請輸入有效的民國發證日期，例如 113/01/02';
             }
@@ -465,11 +469,11 @@ class MemberController extends Controller
         return $this->input();
     }
 
-    private function validateIdDocument(string $field, string $errorKey, array &$errors): void
+    private function validateIdDocument(string $field, string $errorKey, array &$errors, string $requiredMessage = '請上傳身分證正反面電子檔'): void
     {
         $file = $_FILES[$field] ?? null;
         if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            $errors[$errorKey] = '請上傳身分證正反面電子檔';
+            $errors[$errorKey] = $requiredMessage;
             return;
         }
 
