@@ -2,7 +2,9 @@
   <div class="admin-header">
     <div>
       <a class="back-link" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin">← 返回會員管理</a>
-      <h1>內部管理人員</h1>
+      <div class="admin-kicker">總後台</div>
+      <h1>操作人員管理</h1>
+      <p class="admin-header-subtitle">管理總後台登入帳號、權限群組、登入 IP 與操作安全。</p>
     </div>
     <div class="admin-actions">
       <span class="admin-info">管理員：<?= htmlspecialchars($_SESSION['admin']['email'] ?? ADMIN_EMAIL) ?></span>
@@ -15,8 +17,8 @@
 
     <div class="staff-main">
       <div class="card staff-form-card staff-add-panel" id="staff-add-panel" hidden>
-        <div class="form-title" id="staff-form-title">新增管理人員</div>
-        <div class="form-subtitle">系統公司內部使用，新增後可登入後台。</div>
+        <div class="form-title" id="staff-form-title">新增操作人員</div>
+        <div class="form-subtitle">系統公司內部使用，新增後會寄出信箱驗證與設定密碼連結。</div>
 
         <form id="staff-form" novalidate>
           <div class="form-group">
@@ -62,7 +64,7 @@
 
           <div class="form-actions">
             <button type="button" class="btn btn-outline" id="staff-cancel">返回表列</button>
-            <button type="submit" class="btn btn-success">儲存管理人員</button>
+            <button type="submit" class="btn btn-success">儲存操作人員</button>
           </div>
         </form>
       </div>
@@ -73,7 +75,7 @@
           <div class="search-control">
             <label for="staff-search">全文搜尋</label>
             <div class="search-input-wrap">
-              <input type="search" class="search-box" id="staff-search" placeholder="搜尋管理人員..." autocomplete="off" />
+              <input type="search" class="search-box" id="staff-search" placeholder="搜尋操作人員..." autocomplete="off" />
               <button type="button" class="search-clear" id="staff-search-clear" aria-label="清除搜尋內容" title="清除搜尋內容">×</button>
             </div>
           </div>
@@ -81,7 +83,7 @@
         <table>
           <thead>
             <tr>
-              <th>管理人員</th>
+              <th>操作人員</th>
               <th>權限</th>
               <th>狀態</th>
               <th>安全設定</th>
@@ -97,7 +99,7 @@
 
       <div class="card staff-form-card" id="security-settings">
           <div class="form-title">系統安全設定</div>
-          <div class="form-subtitle">設定後台管理人員閒置自動登出，以及總後台可登入 IP 白名單。</div>
+          <div class="form-subtitle">設定總後台操作人員閒置自動登出，以及可登入 IP 白名單。</div>
           <form id="security-settings-form" novalidate>
             <div class="form-group">
               <label>閒置自動登出時間（分鐘）</label>
@@ -140,7 +142,7 @@
             <label class="checkbox-field"><input type="checkbox" value="dealer.view" /> <span>查看經銷商</span></label>
             <label class="checkbox-field"><input type="checkbox" value="dealer.edit" /> <span>編輯經銷商旗標</span></label>
             <label class="checkbox-field"><input type="checkbox" value="security.ip" /> <span>管理可登入 IP</span></label>
-            <label class="checkbox-field"><input type="checkbox" value="staff.manage" /> <span>管理內部管理帳號</span></label>
+            <label class="checkbox-field"><input type="checkbox" value="staff.manage" /> <span>管理操作人員帳號</span></label>
             <label class="checkbox-field"><input type="checkbox" value="group.manage" /> <span>管理群組權限</span></label>
           </div>
           <div class="form-actions group-add-actions">

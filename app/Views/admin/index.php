@@ -1,14 +1,21 @@
 <?php
 $isDealerModule = ($_GET['module'] ?? '') === 'dealers';
 $moduleTitle = $isDealerModule ? '經銷商管理' : '會員管理';
+$moduleSubtitle = $isDealerModule
+  ? '集中查看經銷商會員、商店數與前置碼相關作業。'
+  : '集中查看一般會員、公司會員與審核狀態。';
 ?>
 <div class="container-wide">
   <div class="admin-header">
-    <h1>後台管理</h1>
+    <div>
+      <div class="admin-kicker">總後台</div>
+      <h1><?= htmlspecialchars($moduleTitle, ENT_QUOTES) ?></h1>
+      <p class="admin-header-subtitle"><?= htmlspecialchars($moduleSubtitle, ENT_QUOTES) ?></p>
+    </div>
     <div class="admin-actions">
       <span class="admin-info">管理員：<?= htmlspecialchars($_SESSION['admin']['email'] ?? ADMIN_EMAIL) ?></span>
       <?php if (($_SESSION['admin']['role'] ?? '') === 'super_admin'): ?>
-        <a class="btn btn-sm btn-outline" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">管理人員</a>
+        <a class="btn btn-sm btn-outline" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">操作人員管理</a>
       <?php endif; ?>
       <button class="btn btn-sm btn-outline" onclick="logoutAdmin()">登出</button>
     </div>
@@ -17,9 +24,22 @@ $moduleTitle = $isDealerModule ? '經銷商管理' : '會員管理';
   <div class="admin-member-layout">
     <aside class="admin-member-side">
       <div class="card staff-menu-card">
-        <a class="staff-menu-option active" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin<?= $isDealerModule ? '?module=dealers' : '' ?>">
-          <span><?= htmlspecialchars($moduleTitle, ENT_QUOTES) ?></span>
+        <div class="staff-menu-section-title">核心作業</div>
+        <a class="staff-menu-option <?= !$isDealerModule ? 'active' : '' ?>" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin">
+          <span>會員管理</span>
+          <small>一般會員、公司會員與審核</small>
         </a>
+        <a class="staff-menu-option <?= $isDealerModule ? 'active' : '' ?>" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin?module=dealers">
+          <span>經銷商管理</span>
+          <small>經銷商會員與商店代號</small>
+        </a>
+        <?php if (($_SESSION['admin']['role'] ?? '') === 'super_admin'): ?>
+          <div class="staff-menu-section-title">總後台</div>
+          <a class="staff-menu-option" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">
+            <span>操作人員管理</span>
+            <small>帳號、權限群組與登入安全</small>
+          </a>
+        <?php endif; ?>
       </div>
     </aside>
 

@@ -1,4 +1,4 @@
-// admin-staff-edit.js - 單頁編輯內部管理人員
+// admin-staff-edit.js - 單頁編輯總後台操作人員
 const APP_BASE = document.querySelector('meta[name="app-base"]')?.content || '';
 const API = `${APP_BASE}/api`;
 let permissionGroups = [];

@@ -79,7 +79,7 @@ class AdminController extends Controller
             $this->redirect($this->baseUrl('/admin'));
         }
         $this->render('admin.staff', [
-            'title' => '管理人員',
+            'title' => '操作人員管理',
             'adminTimeoutSeconds' => $this->adminSessionTimeoutSeconds(),
             'adminTimeoutMinutes' => (int) floor($this->adminSessionTimeoutSeconds() / 60),
             'permissionGroups' => $this->permissionGroups(),
@@ -108,7 +108,7 @@ class AdminController extends Controller
         }
 
         $this->render('admin.staff-edit', [
-            'title' => '編輯管理人員',
+            'title' => '編輯操作人員',
             'staff' => $staff ?: null,
             'adminTimeoutSeconds' => $this->adminSessionTimeoutSeconds(),
             'permissionGroups' => $this->permissionGroups(),

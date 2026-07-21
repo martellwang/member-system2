@@ -2,8 +2,8 @@
 <div class="container">
   <div class="card result-card">
     <div class="result-icon fail">!</div>
-    <div class="form-title">找不到管理人員</div>
-    <div class="form-subtitle">這筆內部管理人員資料可能已被刪除。</div>
+    <div class="form-title">找不到操作人員</div>
+    <div class="form-subtitle">這筆總後台操作人員資料可能已被刪除。</div>
     <a class="btn btn-primary" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">返回表列</a>
   </div>
 </div>
@@ -12,8 +12,9 @@
 <div class="container-wide">
   <div class="admin-header">
     <div>
-      <a class="back-link" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">← 返回管理人員表列</a>
-      <h1>編輯管理人員</h1>
+      <a class="back-link" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff">← 返回操作人員表列</a>
+      <div class="admin-kicker">總後台</div>
+      <h1>編輯操作人員</h1>
     </div>
     <div class="admin-actions">
       <span class="admin-info">管理員：<?= htmlspecialchars($_SESSION['admin']['email'] ?? ADMIN_EMAIL) ?></span>
@@ -27,7 +28,7 @@
     <div class="staff-main">
       <div class="edit-page-header">
         <div>
-          <h1>編輯管理人員</h1>
+          <h1>編輯操作人員</h1>
           <p><?= htmlspecialchars($staff['name'] ?? '') ?> · <?= htmlspecialchars($staff['email'] ?? '') ?></p>
         </div>
         <span class="badge <?= ($staff['status'] ?? '') === 'active' ? 'badge-active' : (($staff['status'] ?? '') === 'pending_activation' ? 'badge-pending' : 'badge-suspended') ?>">
@@ -82,7 +83,7 @@
             <div class="field-hint">空白代表不限 IP；可一行一筆，支援單一 IP 或 CIDR。</div>
           </div>
 
-          <div class="alert alert-success" id="staff-edit-success">管理人員已更新，正在返回表列...</div>
+          <div class="alert alert-success" id="staff-edit-success">操作人員已更新，正在返回表列...</div>
           <div class="alert alert-danger" id="staff-edit-error"><span id="staff-edit-error-msg">更新失敗。</span></div>
 
           <div class="form-actions">

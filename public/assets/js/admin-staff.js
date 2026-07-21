@@ -1,4 +1,4 @@
-// admin-staff.js - 後台內部管理人員
+// admin-staff.js - 總後台操作人員
 const APP_BASE = document.querySelector('meta[name="app-base"]')?.content || '';
 const API = `${APP_BASE}/api`;
 
@@ -23,7 +23,7 @@ const PERMISSION_LABELS = {
   'dealer.view': '查看經銷商',
   'dealer.edit': '編輯經銷商旗標',
   'security.ip': '管理可登入 IP',
-  'staff.manage': '管理內部管理帳號',
+  'staff.manage': '管理操作人員帳號',
   'group.manage': '管理群組權限',
 };
 
@@ -221,7 +221,7 @@ function editPermissionGroup(index) {
 }
 
 function roleLabel(role) {
-  return role === 'super_admin' ? '系統管理員' : '一般管理人員';
+  return role === 'super_admin' ? '系統管理員' : '一般操作人員';
 }
 
 function staffPermissionLabel(staff) {
@@ -727,7 +727,7 @@ function showStaffSuccess(message) {
 
 function resetStaffForm() {
   document.getElementById('staff-form').reset();
-  document.getElementById('staff-form-title').textContent = '新增管理人員';
+  document.getElementById('staff-form-title').textContent = '新增操作人員';
   document.getElementById('staff-status-group').hidden = true;
   document.getElementById('staff-allowed-ips').value = '';
   document.getElementById('staff-error').classList.remove('show');
@@ -893,8 +893,8 @@ function renderStaffTable() {
   const tbody = document.getElementById('staff-tbody');
   const count = document.getElementById('staff-count');
   if (!filteredStaffRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">沒有符合條件的管理人員</td></tr>';
-    if (count) count.textContent = staffRows.length ? `顯示 0 / ${staffRows.length} 筆` : '尚無管理人員';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">沒有符合條件的操作人員</td></tr>';
+    if (count) count.textContent = staffRows.length ? `顯示 0 / ${staffRows.length} 筆` : '尚無操作人員';
     return;
   }
 
@@ -1267,8 +1267,8 @@ document.getElementById('staff-form').addEventListener('submit', async (event) =
       body: JSON.stringify(payload),
     });
     showStaffSuccess(data.setup_url
-      ? `管理人員已新增，請使用信箱啟用連結完成密碼設定。開發測試連結：${data.setup_url}`
-      : '管理人員已新增，系統已寄出信箱認證與設定密碼連結。');
+      ? `操作人員已新增，請使用信箱啟用連結完成密碼設定。開發測試連結：${data.setup_url}`
+      : '操作人員已新增，系統已寄出信箱認證與設定密碼連結。');
     await loadStaff();
     if (!data.setup_url) {
       window.setTimeout(showStaffList, 450);
@@ -1324,7 +1324,7 @@ document.getElementById('group-settings-form')?.addEventListener('submit', async
 });
 
 async function deleteStaff(id) {
-  if (!confirm('確定要刪除這位管理人員嗎？')) return;
+  if (!confirm('確定要刪除這位操作人員嗎？')) return;
 
   try {
     await requestJson(`${API}/admin/staff/${id}/delete`, { method: 'POST' });
@@ -1341,7 +1341,7 @@ async function viewLoginLogs(id) {
   const title = document.getElementById('staff-login-log-title');
   if (!modal || !tbody || !title) return;
 
-  title.textContent = `${staff ? staff.name : '管理人員'} - 登入紀錄`;
+  title.textContent = `${staff ? staff.name : '操作人員'} - 登入紀錄`;
   tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">資料載入中...</td></tr>';
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');

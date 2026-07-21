@@ -48,12 +48,12 @@ if ($isMemberLoggedIn) {
       <div class="admin-module-nav" aria-label="後台功能模組">
         <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin" class="<?= !$isAdminStaffArea && !$isDealerModule ? 'active' : '' ?>">會員管理</a>
         <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin?module=dealers" class="<?= $isDealerModule ? 'active' : '' ?>">經銷商管理</a>
-        <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff" class="<?= $isAdminStaffArea ? 'active' : '' ?>">內部管理人員</a>
+        <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin/staff" class="<?= $isAdminStaffArea ? 'active' : '' ?>">總後台操作人員</a>
       </div>
     <?php endif; ?>
     <div class="navbar-nav">
       <?php if ($isAdminArea && $isAdminLoggedIn): ?>
-        <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin" class="nav-link active">後台管理</a>
+        <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/admin" class="nav-link active">總後台</a>
       <?php elseif ($isAdminArea): ?>
       <?php elseif ($isMemberLoggedIn): ?>
         <a href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/member" class="nav-link <?= str_contains($currentUri, 'member') ? 'active' : '' ?>">會員中心</a>

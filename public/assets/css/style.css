@@ -464,6 +464,17 @@ tbody tr:hover td { background: var(--primary-light); }
 /* ===== Admin header ===== */
 .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .admin-header h1 { font-size: 20px; font-weight: 700; }
+.admin-kicker {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.admin-header-subtitle {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
 .admin-info { font-size: 13px; color: var(--text-secondary); }
 .admin-actions { display: flex; align-items: center; gap: 12px; }
 .action-cell { min-width: 190px; }
@@ -775,8 +786,18 @@ tbody tr:hover td { background: var(--primary-light); }
 .staff-side { display: grid; gap: 20px; }
 .staff-main { display: grid; gap: 20px; min-width: 0; }
 .staff-menu-card { padding: 12px; }
+.staff-menu-section-title {
+  margin: 10px 4px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.staff-menu-section-title:first-child {
+  margin-top: 0;
+}
 .staff-menu-option {
-  display: block;
+  display: grid;
+  gap: 3px;
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
@@ -788,12 +809,22 @@ tbody tr:hover td { background: var(--primary-light); }
   font-weight: 700;
   cursor: pointer;
 }
+.staff-menu-option small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
 .staff-menu-option:hover,
 .staff-menu-option.active {
   border-color: var(--primary);
   background: var(--primary-light);
   color: var(--primary);
   text-decoration: none;
+}
+.staff-menu-option:hover small,
+.staff-menu-option.active small {
+  color: var(--primary-dark);
 }
 .staff-menu-child {
   width: calc(100% - 18px);
