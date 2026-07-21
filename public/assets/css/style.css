@@ -189,6 +189,27 @@ a:hover { text-decoration: underline; }
   font-size: 14px;
 }
 .checkbox-field input { width: 16px; height: 16px; accent-color: var(--primary); }
+
+.upload-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-list-item input[type="file"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-add-btn {
+  margin-top: 10px;
+}
 .phone-input-group { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; }
 .address-input-group { display: grid; grid-template-columns: 120px 120px minmax(0, 1fr); gap: 8px; }
 .form-group input.has-roc-picker { padding-right: 48px; }

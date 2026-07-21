@@ -185,6 +185,12 @@ $googleSignup = $googleSignup ?? null;
           <div class="field-hint">可用第二證件：有照片的健保卡或駕照。支援 JPG、PNG、PDF，單檔上限 5MB。</div>
           <div class="error-msg" id="err-second-id-doc">請上傳第二證件電子檔</div>
         </div>
+        <div class="form-group">
+          <label>申請人名稱的銀行帳戶封面電子檔 <span class="required">*</span></label>
+          <input type="file" id="f-personal-bank-book" name="bank_book_cover" accept=".jpg,.jpeg,.png,.pdf" />
+          <div class="field-hint">請上傳申請人本人銀行帳戶封面。支援 JPG、PNG、PDF，單檔上限 5MB。</div>
+          <div class="error-msg" id="err-personal-bank-book">請上傳申請人名稱的銀行帳戶封面電子檔</div>
+        </div>
       </div>
 
       <!-- 公司欄位 -->
@@ -224,6 +230,37 @@ $googleSignup = $googleSignup ?? null;
             <input type="checkbox" id="f-is-dealer" name="is_dealer" value="1" />
             <span>經銷商</span>
           </label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>公司負責人身分證正面電子檔 <span class="required">*</span></label>
+            <input type="file" id="f-company-owner-id-front" name="company_owner_id_card_front" accept=".jpg,.jpeg,.png,.pdf" />
+            <div class="field-hint">支援 JPG、PNG、PDF，單檔上限 5MB</div>
+            <div class="error-msg" id="err-company-owner-id-front">請上傳公司負責人身分證正面電子檔</div>
+          </div>
+          <div class="form-group">
+            <label>公司負責人身分證反面電子檔 <span class="required">*</span></label>
+            <input type="file" id="f-company-owner-id-back" name="company_owner_id_card_back" accept=".jpg,.jpeg,.png,.pdf" />
+            <div class="field-hint">支援 JPG、PNG、PDF，單檔上限 5MB</div>
+            <div class="error-msg" id="err-company-owner-id-back">請上傳公司負責人身分證反面電子檔</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>公司登記證書電子檔 <span class="required">*</span></label>
+          <div id="company-registration-docs" class="upload-list">
+            <div class="upload-list-item">
+              <input type="file" class="company-registration-doc" name="company_registration_docs[]" accept=".jpg,.jpeg,.png,.pdf" />
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm upload-add-btn" id="add-company-registration-doc">新增上傳文件</button>
+          <div class="field-hint">可上傳多份公司登記證書，最多 6 個電子檔。支援 JPG、PNG、PDF，單檔上限 5MB。</div>
+          <div class="error-msg" id="err-company-registration-docs">請上傳 1 至 6 份公司登記證書電子檔</div>
+        </div>
+        <div class="form-group">
+          <label>公司名稱的銀行帳戶封面電子檔 <span class="required">*</span></label>
+          <input type="file" id="f-company-bank-book" name="bank_book_cover" accept=".jpg,.jpeg,.png,.pdf" />
+          <div class="field-hint">請上傳公司名稱銀行帳戶封面。支援 JPG、PNG、PDF，單檔上限 5MB。</div>
+          <div class="error-msg" id="err-company-bank-book">請上傳公司名稱的銀行帳戶封面電子檔</div>
         </div>
       </div>
 

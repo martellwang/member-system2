@@ -19,6 +19,8 @@ $statusMap = [
   'pending' => ['label' => '待審', 'class' => 'badge-pending'],
 ];
 $statusMeta = $statusMap[$member['status'] ?? 'pending'] ?? $statusMap['pending'];
+$companyRegistrationDocPaths = json_decode((string) ($member['company_registration_doc_paths'] ?? '[]'), true);
+$companyRegistrationDocPaths = is_array($companyRegistrationDocPaths) ? array_values(array_filter($companyRegistrationDocPaths)) : [];
 $stores = $stores ?? [];
 $storeStatusMap = [
   'pending' => ['label' => '待審', 'class' => 'badge-pending'],
@@ -536,6 +538,16 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
           <?php else: ?>
             <em>未上傳第二證件</em>
           <?php endif; ?>
+          <?php if (!empty($member['bank_book_cover_path'])): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="申請人銀行帳戶封面"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/bank-book"
+            >查看銀行帳戶封面</button>
+          <?php else: ?>
+            <em>未上傳銀行帳戶封面</em>
+          <?php endif; ?>
         </div>
       </div>
 
@@ -578,6 +590,50 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
             <input type="checkbox" id="edit-is-dealer" value="1" <?= !empty($member['is_dealer']) ? 'checked' : '' ?> <?= $companyLockAttr ?> />
             <span>經銷商</span>
           </label>
+        </div>
+        <div class="document-links">
+          <span>公司附件</span>
+          <?php if (!empty($member['company_owner_id_card_front_path'])): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="公司負責人身分證正面"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/company-owner-front"
+            >查看負責人身分證正面</button>
+          <?php else: ?>
+            <em>未上傳負責人身分證正面</em>
+          <?php endif; ?>
+          <?php if (!empty($member['company_owner_id_card_back_path'])): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="公司負責人身分證反面"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/company-owner-back"
+            >查看負責人身分證反面</button>
+          <?php else: ?>
+            <em>未上傳負責人身分證反面</em>
+          <?php endif; ?>
+          <?php foreach ($companyRegistrationDocPaths as $index => $path): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="公司登記證書 <?= $index + 1 ?>"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/company-registration-<?= $index ?>"
+            >查看公司登記證書 <?= $index + 1 ?></button>
+          <?php endforeach; ?>
+          <?php if (!$companyRegistrationDocPaths): ?>
+            <em>未上傳公司登記證書</em>
+          <?php endif; ?>
+          <?php if (!empty($member['bank_book_cover_path'])): ?>
+            <button
+              type="button"
+              class="document-preview-link"
+              data-document-title="公司銀行帳戶封面"
+              data-document-url="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/api/admin/members/<?= htmlspecialchars((string) $member['id']) ?>/id-documents/bank-book"
+            >查看公司銀行帳戶封面</button>
+          <?php else: ?>
+            <em>未上傳公司銀行帳戶封面</em>
+          <?php endif; ?>
         </div>
       </div>
 

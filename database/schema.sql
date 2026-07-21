@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS `members` (
   `id_card_front_path`    VARCHAR(255) DEFAULT NULL COMMENT '身分證正面電子檔',
   `id_card_back_path`     VARCHAR(255) DEFAULT NULL COMMENT '身分證反面電子檔',
   `second_id_doc_path`    VARCHAR(255) DEFAULT NULL COMMENT '第二證件電子檔',
+  `bank_book_cover_path`  VARCHAR(255) DEFAULT NULL COMMENT '銀行帳戶封面電子檔',
   `id_issue_date`         DATE         DEFAULT NULL COMMENT '身分證發證日期',
   `id_issue_place`        VARCHAR(50)  DEFAULT NULL COMMENT '身分證發證地點',
   `id_issue_type`         ENUM('first','replace','renew') DEFAULT NULL COMMENT '初發 / 補發 / 換發',
@@ -42,6 +43,9 @@ CREATE TABLE IF NOT EXISTS `members` (
   `company_name`          VARCHAR(200) DEFAULT NULL COMMENT '公司名稱',
   `website`               VARCHAR(255) DEFAULT NULL COMMENT '公司網站網址',
   `industry`              VARCHAR(50)  DEFAULT NULL COMMENT '產業類別',
+  `company_owner_id_card_front_path` VARCHAR(255) DEFAULT NULL COMMENT '公司負責人身分證正面電子檔',
+  `company_owner_id_card_back_path`  VARCHAR(255) DEFAULT NULL COMMENT '公司負責人身分證反面電子檔',
+  `company_registration_doc_paths`   TEXT DEFAULT NULL COMMENT '公司登記證書電子檔路徑 JSON',
   `is_dealer`             TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否為經銷商',
 
   -- 驗證欄位

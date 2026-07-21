@@ -1,6 +1,7 @@
 // register.js — 會員註冊前端邏輯
 const APP_BASE = document.querySelector('meta[name="app-base"]')?.content || '';
 const API = `${APP_BASE}/api`;
+const MAX_COMPANY_REGISTRATION_DOCS = 6;
 
 function switchType(type) {
   document.getElementById('member-type').value = type;
@@ -59,6 +60,83 @@ function validateUpload(input) {
   if (!file) return false;
   const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
   return allowed.includes(file.type) && file.size <= 5 * 1024 * 1024;
+}
+
+function getCompanyRegistrationInputs() {
+  return Array.from(document.querySelectorAll('.company-registration-doc'));
+}
+
+function validateCompanyRegistrationDocs() {
+  const inputs = getCompanyRegistrationInputs();
+  const selected = inputs.filter(input => input.files[0]);
+  return selected.length >= 1
+    && selected.length <= MAX_COMPANY_REGISTRATION_DOCS
+    && selected.every(validateUpload);
+}
+
+function refreshCompanyRegistrationDocButtons() {
+  const inputs = getCompanyRegistrationInputs();
+  inputs.forEach((input, index) => {
+    const item = input.closest('.upload-list-item');
+    let removeButton = item.querySelector('.upload-remove-btn');
+    if (!removeButton && inputs.length > 1) {
+      removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'btn btn-light btn-sm upload-remove-btn';
+      removeButton.textContent = '移除';
+      removeButton.addEventListener('click', () => {
+        item.remove();
+        refreshCompanyRegistrationDocButtons();
+      });
+      item.appendChild(removeButton);
+    }
+    if (removeButton) {
+      removeButton.hidden = inputs.length === 1;
+    }
+    input.setAttribute('aria-label', `公司登記證書電子檔 ${index + 1}`);
+  });
+
+  const addButton = document.getElementById('add-company-registration-doc');
+  if (addButton) {
+    addButton.disabled = inputs.length >= MAX_COMPANY_REGISTRATION_DOCS;
+  }
+}
+
+function addCompanyRegistrationDocInput() {
+  const list = document.getElementById('company-registration-docs');
+  if (!list || getCompanyRegistrationInputs().length >= MAX_COMPANY_REGISTRATION_DOCS) return;
+
+  const item = document.createElement('div');
+  item.className = 'upload-list-item';
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.className = 'company-registration-doc';
+  input.name = 'company_registration_docs[]';
+  input.accept = '.jpg,.jpeg,.png,.pdf';
+
+  item.appendChild(input);
+  list.appendChild(item);
+  refreshCompanyRegistrationDocButtons();
+}
+
+function resetCompanyRegistrationDocs() {
+  const list = document.getElementById('company-registration-docs');
+  if (!list) return;
+
+  list.innerHTML = '';
+  const item = document.createElement('div');
+  item.className = 'upload-list-item';
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.className = 'company-registration-doc';
+  input.name = 'company_registration_docs[]';
+  input.accept = '.jpg,.jpeg,.png,.pdf';
+
+  item.appendChild(input);
+  list.appendChild(item);
+  refreshCompanyRegistrationDocButtons();
 }
 
 function validateRocDate(value, required = false) {
@@ -262,11 +340,20 @@ function validate() {
     if (!validateUpload(document.getElementById('f-id-front'))) { showError('f-id-front', 'err-id-front'); valid = false; }
     if (!validateUpload(document.getElementById('f-id-back'))) { showError('f-id-back', 'err-id-back'); valid = false; }
     if (!validateUpload(document.getElementById('f-second-id-doc'))) { showError('f-second-id-doc', 'err-second-id-doc'); valid = false; }
+    if (!validateUpload(document.getElementById('f-personal-bank-book'))) { showError('f-personal-bank-book', 'err-personal-bank-book'); valid = false; }
   } else {
     const taxid   = document.getElementById('f-taxid').value.trim();
     const company = document.getElementById('f-company').value.trim();
     if (!validateTaxId(taxid)) { showError('f-taxid', 'err-taxid'); valid = false; }
     if (!company)              { showError('f-company', 'err-company'); valid = false; }
+    if (!validateUpload(document.getElementById('f-company-owner-id-front'))) { showError('f-company-owner-id-front', 'err-company-owner-id-front'); valid = false; }
+    if (!validateUpload(document.getElementById('f-company-owner-id-back'))) { showError('f-company-owner-id-back', 'err-company-owner-id-back'); valid = false; }
+    if (!validateCompanyRegistrationDocs()) {
+      getCompanyRegistrationInputs().forEach(input => input.classList.add('error'));
+      document.getElementById('err-company-registration-docs').classList.add('show');
+      valid = false;
+    }
+    if (!validateUpload(document.getElementById('f-company-bank-book'))) { showError('f-company-bank-book', 'err-company-bank-book'); valid = false; }
   }
   return valid;
 }
@@ -339,12 +426,21 @@ async function submitRegister() {
     payload.append('id_card_front', document.getElementById('f-id-front').files[0]);
     payload.append('id_card_back', document.getElementById('f-id-back').files[0]);
     payload.append('second_id_doc', document.getElementById('f-second-id-doc').files[0]);
+    payload.append('bank_book_cover', document.getElementById('f-personal-bank-book').files[0]);
   } else {
     payload.append('tax_id', document.getElementById('f-taxid').value.trim());
     payload.append('company_name', document.getElementById('f-company').value.trim());
     payload.append('website', document.getElementById('f-website').value.trim());
     payload.append('industry', document.getElementById('f-industry').value);
     payload.append('is_dealer', document.getElementById('f-is-dealer').checked ? '1' : '0');
+    payload.append('company_owner_id_card_front', document.getElementById('f-company-owner-id-front').files[0]);
+    payload.append('company_owner_id_card_back', document.getElementById('f-company-owner-id-back').files[0]);
+    getCompanyRegistrationInputs().forEach((input) => {
+      if (input.files[0]) {
+        payload.append('company_registration_docs[]', input.files[0]);
+      }
+    });
+    payload.append('bank_book_cover', document.getElementById('f-company-bank-book').files[0]);
   }
 
   try {
@@ -362,6 +458,7 @@ async function submitRegister() {
       document.getElementById('alert-success').innerHTML = `註冊資料已送出，請至信箱完成驗證並設定密碼。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
       document.getElementById('alert-success').classList.add('show');
       document.getElementById('register-form').reset();
+      resetCompanyRegistrationDocs();
       showRegisterSuccessModal(data);
     } else {
       const msg = data.message || (data.errors ? Object.values(data.errors).join('、') : '發生錯誤，請稍後再試。');
@@ -377,3 +474,5 @@ async function submitRegister() {
 bindRocDatePicker('f-id-issue-date');
 bindRocDatePicker('f-birth');
 bindTaiwanAddressSelects('f-contact-city', 'f-contact-district');
+document.getElementById('add-company-registration-doc')?.addEventListener('click', addCompanyRegistrationDocInput);
+refreshCompanyRegistrationDocButtons();

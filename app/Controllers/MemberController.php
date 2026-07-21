@@ -69,6 +69,7 @@ class MemberController extends Controller
             $frontPath = $this->storeIdDocument('id_card_front', $uploadErrors);
             $backPath = $this->storeIdDocument('id_card_back', $uploadErrors);
             $secondIdDocPath = $this->storeIdDocument('second_id_doc', $uploadErrors);
+            $bankBookCoverPath = $this->storeIdDocument('bank_book_cover', $uploadErrors);
 
             if ($uploadErrors) {
                 $this->json(['errors' => $uploadErrors], 422);
@@ -78,12 +79,31 @@ class MemberController extends Controller
             $data['id_card_front_path'] = $frontPath;
             $data['id_card_back_path'] = $backPath;
             $data['second_id_doc_path'] = $secondIdDocPath;
+            $data['bank_book_cover_path'] = $bankBookCoverPath;
+            $data['company_owner_id_card_front_path'] = null;
+            $data['company_owner_id_card_back_path'] = null;
+            $data['company_registration_doc_paths'] = null;
         } else {
+            $uploadErrors = [];
+            $ownerFrontPath = $this->storeIdDocument('company_owner_id_card_front', $uploadErrors);
+            $ownerBackPath = $this->storeIdDocument('company_owner_id_card_back', $uploadErrors);
+            $registrationDocPaths = $this->storeMultipleIdDocuments('company_registration_docs', $uploadErrors);
+            $bankBookCoverPath = $this->storeIdDocument('bank_book_cover', $uploadErrors);
+
+            if ($uploadErrors) {
+                $this->json(['errors' => $uploadErrors], 422);
+                return;
+            }
+
             $data['line_id'] = null;
             $data['id_card_front_path'] = null;
             $data['id_card_back_path'] = null;
             $data['second_id_doc_path'] = null;
+            $data['bank_book_cover_path'] = $bankBookCoverPath;
             $data['gender'] = null;
+            $data['company_owner_id_card_front_path'] = $ownerFrontPath;
+            $data['company_owner_id_card_back_path'] = $ownerBackPath;
+            $data['company_registration_doc_paths'] = json_encode($registrationDocPaths, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $data['is_dealer'] = !empty($data['is_dealer']) ? 1 : 0;
         }
 
@@ -341,6 +361,7 @@ class MemberController extends Controller
             $this->validateIdDocument('id_card_front', 'id_card_front', $errors);
             $this->validateIdDocument('id_card_back', 'id_card_back', $errors);
             $this->validateIdDocument('second_id_doc', 'second_id_doc', $errors, '請上傳第二證件電子檔');
+            $this->validateIdDocument('bank_book_cover', 'bank_book_cover', $errors, '請上傳申請人名稱的銀行帳戶封面電子檔');
             if (!$this->parseRocDate($data['id_issue_date'] ?? '')) {
                 $errors['id_issue_date'] = '請輸入有效的民國發證日期，例如 113/01/02';
             }
@@ -363,6 +384,10 @@ class MemberController extends Controller
             if (empty($data['company_name'])) {
                 $errors['company_name'] = '請輸入公司名稱';
             }
+            $this->validateIdDocument('company_owner_id_card_front', 'company_owner_id_card_front', $errors, '請上傳公司負責人身分證正面電子檔');
+            $this->validateIdDocument('company_owner_id_card_back', 'company_owner_id_card_back', $errors, '請上傳公司負責人身分證反面電子檔');
+            $this->validateMultipleIdDocuments('company_registration_docs', 'company_registration_docs', $errors, '請上傳 1 至 6 份公司登記證書電子檔');
+            $this->validateIdDocument('bank_book_cover', 'bank_book_cover', $errors, '請上傳公司名稱的銀行帳戶封面電子檔');
         }
 
         return $errors;
@@ -507,6 +532,45 @@ class MemberController extends Controller
         }
     }
 
+    private function validateMultipleIdDocuments(string $field, string $errorKey, array &$errors, string $requiredMessage): void
+    {
+        $files = $_FILES[$field] ?? null;
+        if (!$files || !is_array($files['name'] ?? null)) {
+            $errors[$errorKey] = $requiredMessage;
+            return;
+        }
+
+        $count = count(array_filter($files['name'], fn($name) => trim((string) $name) !== ''));
+        if ($count < 1 || $count > 6) {
+            $errors[$errorKey] = $requiredMessage;
+            return;
+        }
+
+        $allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+        foreach ($files['name'] as $index => $name) {
+            if (trim((string) $name) === '') {
+                continue;
+            }
+
+            $error = $files['error'][$index] ?? UPLOAD_ERR_NO_FILE;
+            if ($error !== UPLOAD_ERR_OK) {
+                $errors[$errorKey] = '公司登記證書檔案上傳失敗，請重新選擇檔案';
+                return;
+            }
+
+            if (($files['size'][$index] ?? 0) > 5 * 1024 * 1024) {
+                $errors[$errorKey] = '公司登記證書單檔大小不可超過 5MB';
+                return;
+            }
+
+            $mime = mime_content_type($files['tmp_name'][$index]);
+            if (!in_array($mime, $allowed, true)) {
+                $errors[$errorKey] = '公司登記證書僅支援 JPG、PNG 或 PDF 檔案';
+                return;
+            }
+        }
+    }
+
     private function storeIdDocument(string $field, array &$errors): ?string
     {
         $file = $_FILES[$field] ?? null;
@@ -541,6 +605,39 @@ class MemberController extends Controller
         }
 
         return 'storage/id-documents/' . $filename;
+    }
+
+    private function storeMultipleIdDocuments(string $field, array &$errors): array
+    {
+        $files = $_FILES[$field] ?? null;
+        if (!$files || !is_array($files['name'] ?? null)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($files['name'] as $index => $name) {
+            if (trim((string) $name) === '') {
+                continue;
+            }
+
+            $singleField = "{$field}_{$index}";
+            $_FILES[$singleField] = [
+                'name' => $files['name'][$index],
+                'type' => $files['type'][$index],
+                'tmp_name' => $files['tmp_name'][$index],
+                'error' => $files['error'][$index],
+                'size' => $files['size'][$index],
+            ];
+
+            $path = $this->storeIdDocument($singleField, $errors);
+            unset($_FILES[$singleField]);
+
+            if ($path !== null) {
+                $paths[] = $path;
+            }
+        }
+
+        return $paths;
     }
 
     private function isValidMemberPasswordSetupToken(?array $member): bool

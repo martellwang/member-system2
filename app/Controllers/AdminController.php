@@ -739,7 +739,7 @@ class AdminController extends Controller
         $this->requireLogin();
 
         $member = $this->member->find((int) $id);
-        if (!$member || !in_array($side, ['front', 'back', 'second'], true)) {
+        if (!$member) {
             http_response_code(404);
             echo '找不到檔案。';
             return;
@@ -749,9 +749,20 @@ class AdminController extends Controller
             'front' => 'id_card_front_path',
             'back' => 'id_card_back_path',
             'second' => 'second_id_doc_path',
+            'bank-book' => 'bank_book_cover_path',
+            'company-owner-front' => 'company_owner_id_card_front_path',
+            'company-owner-back' => 'company_owner_id_card_back_path',
         ];
-        $field = $fields[$side];
-        $relativePath = $member[$field] ?? '';
+        if (preg_match('/^company-registration-(\d+)$/', $side, $matches)) {
+            $paths = json_decode((string) ($member['company_registration_doc_paths'] ?? '[]'), true);
+            $relativePath = is_array($paths) ? ($paths[(int) $matches[1]] ?? '') : '';
+        } elseif (isset($fields[$side])) {
+            $field = $fields[$side];
+            $relativePath = $member[$field] ?? '';
+        } else {
+            $relativePath = '';
+        }
+
         $baseDir = realpath(BASE_PATH . '/storage/id-documents');
         $filePath = realpath(BASE_PATH . '/' . $relativePath);
 
