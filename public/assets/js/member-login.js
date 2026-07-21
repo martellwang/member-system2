@@ -6,6 +6,7 @@ const loginForm = document.getElementById('member-login-form');
 const loginTabs = document.querySelectorAll('.login-tab');
 const identityFields = document.querySelectorAll('.login-identity-field');
 const googleBlock = document.querySelector('.login-google-block');
+const googleLoginLink = document.querySelector('[data-google-login-link]');
 const submitButton = loginForm?.querySelector('.login-submit');
 
 function showLoginError(text) {
@@ -35,7 +36,10 @@ function setLoginType(type) {
   });
 
   if (googleBlock) {
-    googleBlock.hidden = type !== 'personal';
+    googleBlock.hidden = false;
+  }
+  if (googleLoginLink) {
+    googleLoginLink.href = `${APP_BASE}/auth/google?mode=login&member_type=${encodeURIComponent(type)}`;
   }
   if (submitButton) {
     submitButton.textContent = type === 'personal' ? '登入個人會員' : '登入公司法人';
@@ -52,9 +56,8 @@ loginForm?.addEventListener('submit', async (event) => {
   hideLoginError();
 
   const memberType = loginForm.dataset.memberType || 'company';
-  const email = loginForm.querySelector('[name="email"]')?.value.trim() || '';
   const password = loginForm.querySelector('[name="password"]')?.value || '';
-  const payload = { member_type: memberType, email, password };
+  const payload = { member_type: memberType, password };
 
   if (memberType === 'personal') {
     const idNumber = (loginForm.querySelector('[name="id_number"]')?.value || '').trim().toUpperCase();
@@ -89,6 +92,20 @@ loginForm?.addEventListener('submit', async (event) => {
   } catch {
     showLoginError('無法連線到伺服器。');
   }
+});
+
+googleLoginLink?.addEventListener('click', (event) => {
+  const memberType = loginForm?.dataset.memberType || 'company';
+  if (memberType !== 'company') return;
+
+  const taxId = (loginForm?.querySelector('[name="tax_id"]')?.value || '').replace(/\D/g, '');
+  if (!/^\d{8}$/.test(taxId)) {
+    event.preventDefault();
+    showLoginError('公司法人使用 Google 登入前，請先輸入 8 碼統一編號。');
+    return;
+  }
+
+  googleLoginLink.href = `${APP_BASE}/auth/google?mode=login&member_type=company&tax_id=${encodeURIComponent(taxId)}`;
 });
 
 setLoginType(loginForm?.dataset.memberType || 'company');

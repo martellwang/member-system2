@@ -1018,7 +1018,7 @@ class AdminController extends Controller
             && trim((string) $parts['host']) !== '';
     }
 
-    /** POST /api/admin/members/{id}/resend-verification — 重寄會員信箱驗證與密碼設定信 */
+    /** POST /api/admin/members/{id}/resend-verification — 重寄會員信箱驗證與初始登入資料 */
     public function resendMemberVerification(string $id): void
     {
         if (!$this->requireApiLogin()) {
@@ -1037,23 +1037,25 @@ class AdminController extends Controller
         }
 
         $token = bin2hex(random_bytes(32));
+        $defaultLoginId = $this->defaultMemberLoginId($member);
         $this->member->update((int) $member['id'], [
             'status' => 'email_unverified',
+            'password' => password_hash($defaultLoginId, PASSWORD_BCRYPT),
             'email_verified_token' => $token,
             'email_verified_at' => null,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $setupUrl = $this->absoluteUrl("/verify/{$token}");
-        $sent = $this->sendMemberPasswordSetupEmail((string) $member['email'], (string) $member['name'], $setupUrl);
+        $verifyUrl = $this->absoluteUrl("/verify/{$token}");
+        $sent = $this->sendMemberEmailVerificationEmail((string) $member['email'], (string) $member['name'], $verifyUrl, $defaultLoginId);
         if (!$sent) {
             $this->json(['message' => '驗證信寄送失敗，請確認主機郵件設定。'], 500);
             return;
         }
 
         $this->json([
-            'message' => '已重新發送信箱驗證與密碼設定信。',
-            'verification_url' => APP_ENV === 'development' ? $setupUrl : null,
+            'message' => '已重新發送信箱驗證與初始登入資料。',
+            'verification_url' => APP_ENV === 'development' ? $verifyUrl : null,
         ]);
     }
 
@@ -1069,7 +1071,7 @@ class AdminController extends Controller
             return;
         }
         if (($member['status'] ?? '') === 'email_unverified' || empty($member['email_verified_at'])) {
-            $this->json(['message' => '會員尚未完成信箱驗證與密碼設定，不能審核通過。'], 422);
+            $this->json(['message' => '會員尚未完成信箱驗證，不能審核通過。'], 422);
             return;
         }
         $this->member->update((int) $id, [
@@ -1272,19 +1274,35 @@ class AdminController extends Controller
         Mailer::send($email, $subject, $body);
     }
 
-    private function sendMemberPasswordSetupEmail(string $email, string $name, string $setupUrl): bool
+    private function defaultMemberLoginId(array $member): string
+    {
+        if (($member['type'] ?? '') === 'company') {
+            return preg_replace('/\D+/', '', (string) ($member['tax_id'] ?? ''));
+        }
+
+        return strtoupper(trim((string) ($member['id_number'] ?? '')));
+    }
+
+    private function sendMemberEmailVerificationEmail(string $email, string $name, string $verifyUrl, string $defaultLoginId): bool
     {
         $body = implode("\r\n", [
             "{$name} 您好：",
             '',
-            '請點擊以下連結完成信箱驗證並設定會員登入密碼：',
-            $setupUrl,
+            '請點擊以下連結完成信箱驗證：',
+            $verifyUrl,
             '',
-            '完成設定後，會員資料會進入後台待審核狀態。',
+            '完成信箱驗證後，會員資料會進入後台待審核狀態。',
+            '',
+            '您的初始登入資料如下：',
+            "登入帳號：{$defaultLoginId}",
+            "初始密碼：{$defaultLoginId}",
+            '',
+            '公司會員的登入帳號為統一編號；個人會員的登入帳號為身分證字號（英文大寫）。',
+            '為保障帳號安全，首次登入後建議至會員中心變更密碼。',
             '',
             '若您沒有申請會員註冊，請忽略此信。',
         ]);
-        return Mailer::send($email, '會員信箱驗證與密碼設定', $body);
+        return Mailer::send($email, '會員信箱驗證與初始登入資料', $body);
     }
 
     private function validateMember(array $data, int $memberId): array

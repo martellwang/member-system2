@@ -37,7 +37,6 @@ class MemberAuthController extends Controller
     public function login(): void
     {
         $data = $this->input();
-        $email = trim($data['email'] ?? '');
         $password = (string) ($data['password'] ?? '');
         $memberType = (string) ($data['member_type'] ?? '');
         $idNumber = strtoupper(trim((string) ($data['id_number'] ?? '')));
@@ -48,8 +47,8 @@ class MemberAuthController extends Controller
             return;
         }
 
-        if ($email === '' || $password === '') {
-            $this->json(['message' => '請輸入電子郵件與密碼。'], 422);
+        if ($password === '') {
+            $this->json(['message' => '請輸入登入密碼。'], 422);
             return;
         }
 
@@ -64,8 +63,8 @@ class MemberAuthController extends Controller
         }
 
         $member = $memberType === 'personal'
-            ? $this->member->findPersonalByIdentity($email, $idNumber)
-            : $this->member->findCompanyByIdentity($email, $taxId);
+            ? $this->member->findPersonalByIdNumber($idNumber)
+            : $this->member->findCompanyByTaxId($taxId);
 
         if (!$member) {
             $this->json(['message' => '帳號或密碼錯誤。'], 422);
@@ -73,7 +72,7 @@ class MemberAuthController extends Controller
         }
 
         if (($member['status'] ?? '') === 'email_unverified' || empty($member['email_verified_at'])) {
-            $this->json(['message' => '請先至信箱完成驗證並設定密碼。'], 403);
+            $this->json(['message' => '請先至信箱完成驗證。'], 403);
             return;
         }
 

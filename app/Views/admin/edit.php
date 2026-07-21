@@ -388,7 +388,7 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
               <button type="button" class="btn btn-sm btn-outline" id="resend-email-verification">
                 重新發送信箱驗證
               </button>
-              <span class="field-hint">會員尚未完成信箱驗證與密碼設定。</span>
+              <span class="field-hint">會員尚未完成信箱驗證。</span>
             </div>
           <?php endif; ?>
         </div>

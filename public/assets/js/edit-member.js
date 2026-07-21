@@ -475,7 +475,7 @@ document.getElementById('resend-email-verification')?.addEventListener('click', 
   const id = document.getElementById('edit-id').value;
   const originalText = button.textContent;
 
-  if (!confirm('確定要重新發送信箱驗證與設定密碼信嗎？')) {
+  if (!confirm('確定要重新發送信箱驗證與初始登入資料嗎？')) {
     return;
   }
 

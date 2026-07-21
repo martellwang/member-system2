@@ -9,6 +9,10 @@ function switchType(type) {
   document.getElementById('company-fields').style.display  = type === 'company'  ? '' : 'none';
   document.getElementById('btn-personal').classList.toggle('active', type === 'personal');
   document.getElementById('btn-company').classList.toggle('active', type === 'company');
+  const googleRegisterLink = document.querySelector('[data-google-register-link]');
+  if (googleRegisterLink) {
+    googleRegisterLink.href = `${APP_BASE}/auth/google?member_type=${encodeURIComponent(type)}`;
+  }
   clearErrors();
 }
 
@@ -374,7 +378,7 @@ function showRegisterSuccessModal(data) {
   }
 
   if (messageNode) {
-    messageNode.textContent = data.message || '請先至電子郵件信箱收取驗證信，完成信箱驗證與密碼設定。';
+    messageNode.textContent = data.message || '請先至電子郵件信箱收取驗證信，完成信箱驗證。';
   }
 
   countdownNode.textContent = String(seconds);
@@ -455,7 +459,7 @@ async function submitRegister() {
       const verifyLink = data.verification_url
         ? `<a href="${data.verification_url}" target="_blank" rel="noopener">開啟驗證連結</a>`
         : '';
-      document.getElementById('alert-success').innerHTML = `註冊資料已送出，請至信箱完成驗證並設定密碼。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
+      document.getElementById('alert-success').innerHTML = `註冊資料已送出，請至信箱完成驗證。${verifyLink ? `<span class="dev-link">${verifyLink}</span>` : ''}`;
       document.getElementById('alert-success').classList.add('show');
       document.getElementById('register-form').reset();
       resetCompanyRegistrationDocs();

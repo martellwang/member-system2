@@ -108,9 +108,10 @@ class MemberController extends Controller
         }
 
         $isGoogleSignup = !empty($data['google_id']);
+        $defaultLoginId = $this->defaultMemberLoginId($data);
 
-        // 密碼稍後由信箱驗證連結設定。Google 註冊以不可預期密碼保留欄位完整性。
-        $data['password']             = password_hash(bin2hex(random_bytes(24)), PASSWORD_BCRYPT);
+        // Google 註冊不需本機密碼；非 Google 註冊使用會員身分識別碼作為初始密碼。
+        $data['password']             = password_hash($isGoogleSignup ? bin2hex(random_bytes(24)) : $defaultLoginId, PASSWORD_BCRYPT);
         $data['status']               = $isGoogleSignup ? 'pending' : 'email_unverified';
         $data['auth_provider']        = $isGoogleSignup ? 'google' : 'local';
         $data['email_verified_token'] = $isGoogleSignup ? null : bin2hex(random_bytes(32));
@@ -129,11 +130,11 @@ class MemberController extends Controller
         }
 
         if (!$isGoogleSignup) {
-            $this->sendMemberPasswordSetupEmail($data['email'], $data['name'], $verifyUrl);
+            $this->sendMemberEmailVerificationEmail($data['email'], $data['name'], $verifyUrl, $defaultLoginId);
         }
 
         $this->json([
-            'message' => $isGoogleSignup ? 'Google 帳號註冊成功，請等待後台審核。' : '註冊資料已送出，請至信箱完成驗證並設定密碼。',
+            'message' => $isGoogleSignup ? 'Google 帳號註冊成功，請等待後台審核。' : '註冊資料已送出，請至信箱完成驗證。初始登入帳號與密碼已寄至信箱。',
             'id' => $id,
             'verification_url' => (!$isGoogleSignup && APP_ENV === 'development') ? $verifyUrl : null,
             'complete_url' => $this->sitePath('/register/complete'),
@@ -156,6 +157,7 @@ class MemberController extends Controller
         $_SESSION['google_oauth_state'] = $state;
         $_SESSION['google_oauth_mode'] = ($_GET['mode'] ?? '') === 'login' ? 'login' : 'signup';
         $_SESSION['google_oauth_login_type'] = ($_GET['member_type'] ?? '') === 'company' ? 'company' : 'personal';
+        $_SESSION['google_oauth_tax_id'] = preg_replace('/\D+/', '', (string) ($_GET['tax_id'] ?? ''));
 
         $params = [
             'client_id' => GOOGLE_CLIENT_ID,
@@ -185,8 +187,10 @@ class MemberController extends Controller
         unset($_SESSION['google_oauth_state']);
         $mode = $_SESSION['google_oauth_mode'] ?? 'signup';
         $loginType = $_SESSION['google_oauth_login_type'] ?? 'personal';
+        $loginTaxId = $_SESSION['google_oauth_tax_id'] ?? '';
         unset($_SESSION['google_oauth_mode']);
         unset($_SESSION['google_oauth_login_type']);
+        unset($_SESSION['google_oauth_tax_id']);
 
         if (!empty($_GET['error']) || empty($_GET['code'])) {
             $this->render('member.verify', [
@@ -218,7 +222,7 @@ class MemberController extends Controller
         }
 
         if ($mode === 'login') {
-            $this->loginWithGoogleProfile($profile, $loginType);
+            $this->loginWithGoogleProfile($profile, $loginType, $loginTaxId);
             return;
         }
 
@@ -226,22 +230,40 @@ class MemberController extends Controller
             'google_id' => $profile['sub'] ?? '',
             'email' => $profile['email'],
             'name' => $profile['name'] ?? '',
+            'member_type' => $loginType,
         ];
 
         $this->redirect($this->sitePath('/register'));
     }
 
-    private function loginWithGoogleProfile(array $profile, string $memberType = 'personal'): void
+    private function loginWithGoogleProfile(array $profile, string $memberType = 'personal', string $taxId = ''): void
     {
         $memberType = in_array($memberType, ['personal', 'company'], true) ? $memberType : 'personal';
         $googleId = (string) ($profile['sub'] ?? '');
-        $member = $googleId ? $this->member->findByGoogleIdAndType($googleId, $memberType) : false;
+        $taxId = preg_replace('/\D+/', '', $taxId);
 
-        if (!$member) {
+        if ($memberType === 'company' && !preg_match('/^\d{8}$/', $taxId)) {
             $this->render('member.verify', [
                 'title' => 'Google 登入失敗',
                 'success' => false,
-                'message' => '找不到已綁定的個人會員帳號，請先使用 Google 帳號完成會員註冊。',
+                'message' => '公司法人使用 Google 登入前，請先輸入 8 碼統一編號。',
+            ]);
+            return;
+        }
+
+        $member = false;
+        if ($googleId) {
+            $member = $memberType === 'company'
+                ? $this->member->findCompanyByGoogleIdAndTaxId($googleId, $taxId)
+                : $this->member->findByGoogleIdAndType($googleId, $memberType);
+        }
+
+        if (!$member) {
+            $memberLabel = $memberType === 'company' ? '公司法人' : '個人會員';
+            $this->render('member.verify', [
+                'title' => 'Google 登入失敗',
+                'success' => false,
+                'message' => "找不到已綁定的{$memberLabel}帳號，請先使用 Google 帳號完成會員註冊。",
             ]);
             return;
         }
@@ -282,12 +304,26 @@ class MemberController extends Controller
     public function verify(string $token): void
     {
         $member = $this->member->findByToken($token);
+        if (!$this->isValidMemberPasswordSetupToken($member ?: null)) {
+            $this->render('member.verify', [
+                'title' => '信箱驗證失敗',
+                'success' => false,
+                'message' => '驗證連結無效或已使用。',
+            ]);
+            return;
+        }
 
-        $this->render('member.setup-password', [
-            'title' => '設定會員密碼',
-            'token' => $token,
-            'member' => $member ?: null,
-            'valid' => $this->isValidMemberPasswordSetupToken($member ?: null),
+        $this->member->update((int) $member['id'], [
+            'status' => 'pending',
+            'email_verified_at' => date('Y-m-d H:i:s'),
+            'email_verified_token' => null,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->render('member.verify', [
+            'title' => '信箱驗證完成',
+            'success' => true,
+            'message' => '信箱驗證完成，會員資料已進入後台待審核狀態。',
         ]);
     }
 
@@ -401,6 +437,15 @@ class MemberController extends Controller
             '2' => 'female',
             default => null,
         };
+    }
+
+    private function defaultMemberLoginId(array $data): string
+    {
+        if (($data['type'] ?? '') === 'company') {
+            return preg_replace('/\D+/', '', (string) ($data['tax_id'] ?? ''));
+        }
+
+        return strtoupper(trim((string) ($data['id_number'] ?? '')));
     }
 
     private function isValidTaiwanIdNumber(string $idno): bool
@@ -653,19 +698,26 @@ class MemberController extends Controller
         return in_array($member['status'] ?? '', ['email_unverified', 'pending'], true);
     }
 
-    private function sendMemberPasswordSetupEmail(string $email, string $name, string $setupUrl): bool
+    private function sendMemberEmailVerificationEmail(string $email, string $name, string $verifyUrl, string $defaultLoginId): bool
     {
         $body = implode("\r\n", [
             "{$name} 您好：",
             '',
-            '請點擊以下連結完成信箱驗證並設定會員登入密碼：',
-            $setupUrl,
+            '您的會員註冊資料已送出，請點擊以下連結完成信箱驗證：',
+            $verifyUrl,
             '',
-            '完成設定後，會員資料會進入後台待審核狀態。',
+            '完成信箱驗證後，會員資料會進入後台待審核狀態。',
+            '',
+            '您的初始登入資料如下：',
+            "登入帳號：{$defaultLoginId}",
+            "初始密碼：{$defaultLoginId}",
+            '',
+            '公司會員的登入帳號為統一編號；個人會員的登入帳號為身分證字號（英文大寫）。',
+            '為保障帳號安全，首次登入後建議至會員中心變更密碼。',
             '',
             '若您沒有申請會員註冊，請忽略此信。',
         ]);
-        return Mailer::send($email, '會員信箱驗證與密碼設定', $body);
+        return Mailer::send($email, '會員信箱驗證與初始登入資料', $body);
     }
 
     private function baseUrl(string $path = ''): string

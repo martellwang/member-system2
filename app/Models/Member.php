@@ -84,11 +84,27 @@ class Member extends Model
         return $stmt->fetch();
     }
 
+    /** 依身分證號查詢個人會員 */
+    public function findPersonalByIdNumber(string $idNumber): array|false
+    {
+        $stmt = $this->db->prepare("SELECT * FROM `members` WHERE `type` = 'personal' AND `id_number` = ? ORDER BY `id` DESC LIMIT 1");
+        $stmt->execute([strtoupper($idNumber)]);
+        return $stmt->fetch();
+    }
+
     /** 依 Email + 統一編號查詢公司法人會員 */
     public function findCompanyByIdentity(string $email, string $taxId): array|false
     {
         $stmt = $this->db->prepare("SELECT * FROM `members` WHERE `type` = 'company' AND `email` = ? AND `tax_id` = ?");
         $stmt->execute([$email, $taxId]);
+        return $stmt->fetch();
+    }
+
+    /** 依統一編號查詢公司法人會員 */
+    public function findCompanyByTaxId(string $taxId): array|false
+    {
+        $stmt = $this->db->prepare("SELECT * FROM `members` WHERE `type` = 'company' AND `tax_id` = ? ORDER BY `id` DESC LIMIT 1");
+        $stmt->execute([$taxId]);
         return $stmt->fetch();
     }
 
@@ -105,6 +121,14 @@ class Member extends Model
     {
         $stmt = $this->db->prepare("SELECT * FROM `members` WHERE `google_id` = ? AND `type` = ?");
         $stmt->execute([$googleId, $type]);
+        return $stmt->fetch();
+    }
+
+    /** 依 Google ID + 公司統編查詢公司法人會員 */
+    public function findCompanyByGoogleIdAndTaxId(string $googleId, string $taxId): array|false
+    {
+        $stmt = $this->db->prepare("SELECT * FROM `members` WHERE `google_id` = ? AND `type` = 'company' AND `tax_id` = ?");
+        $stmt->execute([$googleId, $taxId]);
         return $stmt->fetch();
     }
 

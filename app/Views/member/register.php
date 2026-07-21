@@ -1,6 +1,7 @@
 <?php
 $csrfToken = bin2hex(random_bytes(32));
 $googleSignup = $googleSignup ?? null;
+$initialMemberType = ($googleSignup['member_type'] ?? '') === 'company' ? 'company' : 'personal';
 ?>
 <div class="container">
   <div class="card">
@@ -10,18 +11,18 @@ $googleSignup = $googleSignup ?? null;
     <?php if ($googleSignup): ?>
       <div class="alert alert-success show">已連結 Google 帳號：<?= htmlspecialchars($googleSignup['email']) ?></div>
     <?php else: ?>
-      <a class="btn btn-google" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/auth/google">使用 Google 帳號註冊</a>
+      <a class="btn btn-google" data-google-register-link href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/auth/google?member_type=<?= htmlspecialchars($initialMemberType, ENT_QUOTES) ?>">使用 Google 帳號註冊</a>
       <div class="divider-text">或填寫下列表單</div>
     <?php endif; ?>
 
     <div class="type-switch">
-      <button class="type-btn active" id="btn-personal" onclick="switchType('personal')">👤 個人用戶</button>
-      <button class="type-btn" id="btn-company" onclick="switchType('company')">🏢 商業公司</button>
+      <button class="type-btn <?= $initialMemberType === 'personal' ? 'active' : '' ?>" id="btn-personal" onclick="switchType('personal')">👤 個人用戶</button>
+      <button class="type-btn <?= $initialMemberType === 'company' ? 'active' : '' ?>" id="btn-company" onclick="switchType('company')">🏢 商業公司</button>
     </div>
 
     <form id="register-form" novalidate>
       <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>" />
-      <input type="hidden" id="member-type" value="personal" />
+      <input type="hidden" id="member-type" value="<?= htmlspecialchars($initialMemberType, ENT_QUOTES) ?>" />
       <input type="hidden" id="f-google-id" value="<?= htmlspecialchars($googleSignup['google_id'] ?? '') ?>" />
 
       <div class="section-label">基本資料</div>
@@ -81,13 +82,13 @@ $googleSignup = $googleSignup ?? null;
         <?php if (!$googleSignup): ?>
           <div class="form-group">
             <label>信箱驗證</label>
-            <div class="readonly-note">送出註冊後，系統會寄出信箱驗證與設定密碼連結。</div>
+            <div class="readonly-note">送出註冊後，系統會寄出信箱驗證連結與初始登入資料。</div>
           </div>
         <?php endif; ?>
       </div>
 
       <!-- 個人欄位 -->
-      <div id="personal-fields">
+      <div id="personal-fields" style="<?= $initialMemberType === 'personal' ? '' : 'display:none;' ?>">
         <div class="section-label">個人身份資料</div>
         <div class="form-group">
           <label>身分證號 <span class="required">*</span></label>
@@ -194,7 +195,7 @@ $googleSignup = $googleSignup ?? null;
       </div>
 
       <!-- 公司欄位 -->
-      <div id="company-fields" style="display:none;">
+      <div id="company-fields" style="<?= $initialMemberType === 'company' ? '' : 'display:none;' ?>">
         <div class="section-label">公司資料</div>
         <div class="form-row">
           <div class="form-group">
@@ -266,7 +267,7 @@ $googleSignup = $googleSignup ?? null;
 
       <button type="button" class="btn btn-primary" onclick="submitRegister()">立即註冊</button>
 
-      <div class="alert alert-success" id="alert-success">✅ 註冊資料已送出，請至信箱完成驗證並設定密碼。</div>
+      <div class="alert alert-success" id="alert-success">✅ 註冊資料已送出，請至信箱完成驗證。</div>
       <div class="alert alert-danger"  id="alert-error">❌ <span id="alert-error-msg">發生錯誤，請稍後再試。</span></div>
     </form>
   </div>
@@ -277,7 +278,7 @@ $googleSignup = $googleSignup ?? null;
     <div class="result-icon ok">✓</div>
     <div class="form-title" id="register-success-title">註冊資料已送出</div>
     <div class="form-subtitle" id="register-success-message">
-      請先至電子郵件信箱收取驗證信，完成信箱驗證與密碼設定。
+      請先至電子郵件信箱收取驗證信，完成信箱驗證。
     </div>
     <div class="countdown-note">
       <strong id="register-success-countdown">10</strong> 秒後前往註冊資料填寫完成頁

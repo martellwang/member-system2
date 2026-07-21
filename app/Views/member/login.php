@@ -21,11 +21,6 @@
       </div>
 
       <div class="form-group">
-        <label>電子郵件</label>
-        <input type="email" name="email" autocomplete="username" />
-      </div>
-
-      <div class="form-group">
         <label>登入密碼</label>
         <input type="password" name="password" autocomplete="current-password" />
       </div>
@@ -34,9 +29,9 @@
       <div class="alert alert-danger member-login-error"><span>登入失敗</span></div>
     </form>
 
-    <div class="login-google-block" hidden>
+    <div class="login-google-block">
       <div class="divider-text">或</div>
-      <a class="btn btn-google" href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/auth/google?mode=login&amp;member_type=personal">使用 Google 帳號登入</a>
+      <a class="btn btn-google" data-google-login-link href="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/auth/google?mode=login&amp;member_type=company">使用 Google 帳號登入</a>
     </div>
 
     <div class="login-links">
