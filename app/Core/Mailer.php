@@ -24,7 +24,16 @@ class Mailer
         $host = MAIL_HOST;
         $port = defined('MAIL_PORT') ? (int) MAIL_PORT : 587;
         $timeout = 20;
-        $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeout);
+        $encryption = defined('MAIL_ENCRYPTION') ? strtolower((string) MAIL_ENCRYPTION) : 'tls';
+        $transport = $encryption === 'ssl' ? 'ssl' : 'tcp';
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => self::verifyPeer(),
+                'verify_peer_name' => self::verifyPeer(),
+                'peer_name' => $host,
+            ],
+        ]);
+        $socket = @stream_socket_client("{$transport}://{$host}:{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
         if (!$socket) {
             error_log("SMTP connection failed: {$errno} {$errstr}");
             return false;
@@ -34,9 +43,8 @@ class Mailer
 
         try {
             self::expect($socket, 220);
-            self::command($socket, 'EHLO localhost', 250);
+            self::command($socket, 'EHLO ' . self::ehloDomain(), 250);
 
-            $encryption = defined('MAIL_ENCRYPTION') ? strtolower((string) MAIL_ENCRYPTION) : 'tls';
             if ($encryption === 'tls') {
                 self::command($socket, 'STARTTLS', 220);
                 if (!@stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
@@ -44,7 +52,7 @@ class Mailer
                     fclose($socket);
                     return false;
                 }
-                self::command($socket, 'EHLO localhost', 250);
+                self::command($socket, 'EHLO ' . self::ehloDomain(), 250);
             }
 
             self::command($socket, 'AUTH LOGIN', 334);
@@ -118,6 +126,21 @@ class Mailer
     private static function fromName(): string
     {
         return defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'NewPay';
+    }
+
+    private static function ehloDomain(): string
+    {
+        $domain = defined('MAIL_EHLO_DOMAIN') ? trim((string) MAIL_EHLO_DOMAIN) : '';
+        if ($domain === '' || str_contains($domain, ' ')) {
+            return 'localhost';
+        }
+
+        return $domain;
+    }
+
+    private static function verifyPeer(): bool
+    {
+        return defined('MAIL_VERIFY_PEER') ? (bool) MAIL_VERIFY_PEER : true;
     }
 
     private static function encodedSubject(string $subject): string

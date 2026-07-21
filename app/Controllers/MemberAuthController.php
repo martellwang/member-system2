@@ -228,6 +228,7 @@ class MemberAuthController extends Controller
             'store_district' => trim((string) $data['store_district']),
             'store_address' => trim((string) $data['store_address']),
             'contact_name' => trim((string) $data['contact_name']),
+            'contact_phone_area_code' => trim((string) ($data['contact_phone_area_code'] ?? '')) ?: null,
             'contact_phone' => trim((string) ($data['contact_phone'] ?? '')),
             'contact_mobile' => trim((string) ($data['contact_mobile'] ?? '')),
             'industry' => trim((string) $data['industry']),
@@ -251,6 +252,188 @@ class MemberAuthController extends Controller
             'message' => '新增商店申請已送出，請等待後台審核。',
             'id' => $id,
         ], 201);
+    }
+
+    /** POST /api/members/stores/{storeId}/invoice-settings - 更新商店電子發票設定 */
+    public function updateStoreInvoiceSettings(string $storeId): void
+    {
+        if (!$this->isLoggedIn()) {
+            $this->json(['message' => '請先登入會員。'], 401);
+            return;
+        }
+
+        $store = $this->memberStore->findByMemberAndId((int) $_SESSION['member']['id'], (int) $storeId);
+        if (!$store) {
+            $this->json(['message' => '找不到此會員的商店資料。'], 404);
+            return;
+        }
+
+        $data = $this->input();
+        $enabled = filter_var($data['e_invoice_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $autoIssue = filter_var($data['e_invoice_auto_issue'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $center = trim((string) ($data['e_invoice_center'] ?? ''));
+        $giftUnit = trim((string) ($data['e_invoice_gift_unit'] ?? ''));
+        $delayDays = $data['e_invoice_delay_days'] ?? null;
+        $delayDays = $delayDays === null || $delayDays === '' ? null : (int) $delayDays;
+        $errors = [];
+
+        if ($center !== '' && mb_strlen($center) > 100) {
+            $errors['e_invoice_center'] = '電子發票加值中心名稱不可超過 100 字。';
+        }
+        if ($giftUnit !== '' && mb_strlen($giftUnit) > 30) {
+            $errors['e_invoice_gift_unit'] = '預設發票捐贈單位不可超過 30 字。';
+        }
+        if ($delayDays !== null && ($delayDays < 1 || $delayDays > 30)) {
+            $errors['e_invoice_delay_days'] = '延後開立天數必須介於 1 至 30 天。';
+        }
+
+        if ($errors) {
+            $this->json(['message' => '電子發票設定資料不正確。', 'errors' => $errors], 422);
+            return;
+        }
+
+        $this->memberStore->update((int) $storeId, [
+            'e_invoice_enabled' => $enabled ? 1 : 0,
+            'e_invoice_center' => $center,
+            'e_invoice_gift_unit' => $giftUnit,
+            'e_invoice_auto_issue' => $autoIssue ? 1 : 0,
+            'e_invoice_delay_days' => $autoIssue ? null : $delayDays,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->json(['message' => '電子發票設定已儲存。']);
+    }
+
+    /** POST /api/members/stores/{storeId}/transaction-settings - 更新交易限制設定 */
+    public function updateStoreTransactionSettings(string $storeId): void
+    {
+        if (!$this->isLoggedIn()) {
+            $this->json(['message' => '請先登入會員。'], 401);
+            return;
+        }
+
+        $store = $this->memberStore->findByMemberAndId((int) $_SESSION['member']['id'], (int) $storeId);
+        if (!$store) {
+            $this->json(['message' => '找不到此會員的商店資料。'], 404);
+            return;
+        }
+
+        $data = $this->input();
+        $cardMode = (string) ($data['transaction_card_limit_mode'] ?? 'off');
+        $ipMode = (string) ($data['transaction_ip_limit_mode'] ?? 'off');
+        $allowedModes = ['off', 'blacklist', 'whitelist'];
+        if (!in_array($cardMode, $allowedModes, true) || !in_array($ipMode, $allowedModes, true)) {
+            $this->json(['message' => '交易限制模式不正確。'], 422);
+            return;
+        }
+
+        $this->memberStore->update((int) $storeId, [
+            'transaction_amount_limit_enabled' => filter_var($data['transaction_amount_limit_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'expired_refund_enabled' => filter_var($data['expired_refund_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'transaction_card_limit_mode' => $cardMode,
+            'transaction_ip_limit_mode' => $ipMode,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->json(['message' => '交易限制設定已儲存。']);
+    }
+
+    /** POST /api/members/stores/{storeId}/integration-settings - 更新串接設定 */
+    public function updateStoreIntegrationSettings(string $storeId): void
+    {
+        if (!$this->isLoggedIn()) {
+            $this->json(['message' => '請先登入會員。'], 401);
+            return;
+        }
+
+        $store = $this->memberStore->findByMemberAndId((int) $_SESSION['member']['id'], (int) $storeId);
+        if (!$store) {
+            $this->json(['message' => '找不到此會員的商店資料。'], 404);
+            return;
+        }
+
+        $data = $this->input();
+        $hashKey = trim((string) ($data['integration_hash_key'] ?? ''));
+        $ivKey = trim((string) ($data['integration_iv_key'] ?? ''));
+        $notifyUrl = trim((string) ($data['integration_notify_url'] ?? ''));
+        $returnUrl = trim((string) ($data['integration_return_url'] ?? ''));
+        $allowedIps = trim((string) ($data['integration_allowed_ips'] ?? ''));
+        $errors = [];
+
+        foreach (['integration_hash_key' => $hashKey, 'integration_iv_key' => $ivKey] as $field => $value) {
+            if ($value !== '' && mb_strlen($value) > 255) {
+                $errors[$field] = '串接金鑰不可超過 255 字。';
+            }
+        }
+        foreach (['integration_notify_url' => $notifyUrl, 'integration_return_url' => $returnUrl] as $field => $value) {
+            if ($value !== '' && (!$this->isHttpUrl($value) || mb_strlen($value) > 255)) {
+                $errors[$field] = '請輸入有效的 HTTP 或 HTTPS 網址。';
+            }
+        }
+        if (mb_strlen($allowedIps) > 2000) {
+            $errors['integration_allowed_ips'] = '限定 API 的 IP 設定不可超過 2000 字。';
+        }
+
+        $ipLines = $allowedIps === '' ? [] : (preg_split('/\R/', $allowedIps) ?: []);
+        $normalizedIps = [];
+        foreach ($ipLines as $line) {
+            $ip = trim($line);
+            if ($ip === '') {
+                continue;
+            }
+            if (!$this->isIpOrCidr($ip)) {
+                $errors['integration_allowed_ips'] = '每一行必須是有效的 IP 位址或 CIDR。';
+                break;
+            }
+            $normalizedIps[] = $ip;
+        }
+        if ($errors) {
+            $this->json(['message' => '串接設定資料不正確。', 'errors' => $errors], 422);
+            return;
+        }
+
+        $apiFlags = [
+            'integration_credit_card_api_enabled', 'integration_refund_api_enabled',
+            'integration_token_api_enabled', 'integration_non_card_refund_api_enabled',
+            'integration_logistics_refund_api_enabled', 'integration_linepay_refund_api_enabled',
+            'integration_member_free_api_enabled', 'integration_discount_refund_api_enabled',
+            'integration_street_payment_refund_api_enabled',
+        ];
+        $payload = [
+            'integration_hash_key' => $hashKey ?: null,
+            'integration_iv_key' => $ivKey ?: null,
+            'integration_notify_url' => $notifyUrl ?: null,
+            'integration_return_url' => $returnUrl ?: null,
+            'integration_test_mode' => filter_var($data['integration_test_mode'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_allowed_ips' => $normalizedIps ? implode("\n", $normalizedIps) : null,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+        foreach ($apiFlags as $flag) {
+            $payload[$flag] = filter_var($data[$flag] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+        }
+        $this->memberStore->update((int) $storeId, $payload);
+        $this->json(['message' => '串接設定已儲存。']);
+    }
+
+    private function isHttpUrl(string $value): bool
+    {
+        $parts = parse_url($value);
+        return is_array($parts)
+            && in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+            && !empty($parts['host']);
+    }
+
+    private function isIpOrCidr(string $value): bool
+    {
+        $parts = explode('/', $value, 2);
+        if (filter_var($parts[0], FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+        if (!isset($parts[1])) {
+            return true;
+        }
+        $max = str_contains($parts[0], ':') ? 128 : 32;
+        return ctype_digit($parts[1]) && (int) $parts[1] >= 0 && (int) $parts[1] <= $max;
     }
 
     private function isLoggedIn(): bool
@@ -310,11 +493,22 @@ class MemberAuthController extends Controller
         if (!empty($data['store_email']) && !filter_var($data['store_email'], FILTER_VALIDATE_EMAIL)) {
             $errors['store_email'] = '請輸入有效的商店電子信箱';
         }
-        if (trim((string) ($data['contact_phone'] ?? '')) === '' && trim((string) ($data['contact_mobile'] ?? '')) === '') {
+        $contactPhone = trim((string) ($data['contact_phone'] ?? ''));
+        $contactMobile = trim((string) ($data['contact_mobile'] ?? ''));
+        $contactPhoneAreaCode = trim((string) ($data['contact_phone_area_code'] ?? ''));
+        if ($contactPhone === '' && $contactMobile === '') {
             $errors['contact_mobile'] = '聯絡人電話與手機號碼請擇一填寫';
         }
-        if (trim((string) ($data['contact_mobile'] ?? '')) !== '' && !preg_match('/^09\d{2}-?\d{3}-?\d{3}$/', trim((string) $data['contact_mobile']))) {
+        if ($contactMobile !== '' && !preg_match('/^09\d{2}-?\d{3}-?\d{3}$/', $contactMobile)) {
             $errors['contact_mobile'] = '請輸入有效的台灣手機號碼';
+        }
+        if ($contactPhone !== '') {
+            if (!in_array($contactPhoneAreaCode, ['02', '03', '037', '04', '049', '05', '06', '07', '08', '089', '082', '0826', '0836'], true)) {
+                $errors['contact_phone_area_code'] = '請選擇有效的台灣市話區碼';
+            }
+            if (!preg_match('/^\d{6,8}$/', str_replace('-', '', $contactPhone))) {
+                $errors['contact_phone'] = '請輸入 6 至 8 碼的市話號碼';
+            }
         }
 
         $ratios = $this->deliveryRatios($data);
@@ -323,9 +517,12 @@ class MemberAuthController extends Controller
         }
 
         $storeUrlType = $data['store_url_type'] ?? 'url';
+        if (!in_array($storeUrlType, ['url', 'none'], true)) {
+            $errors['store_url_type'] = '請選擇有效的商店網址類型';
+        }
         if ($storeUrlType === 'url') {
             $storeUrl = trim((string) ($data['store_url'] ?? ''));
-            if ($storeUrl === '' || !filter_var($storeUrl, FILTER_VALIDATE_URL)) {
+            if (!$this->isCompliantStoreUrl($storeUrl)) {
                 $errors['store_url'] = '請輸入有效的商店網址';
             }
         }
@@ -336,6 +533,19 @@ class MemberAuthController extends Controller
         }
 
         return $errors;
+    }
+
+    private function isCompliantStoreUrl(string $value): bool
+    {
+        if ($value === '' || !filter_var($value, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        $parts = parse_url($value);
+        return is_array($parts)
+            && isset($parts['scheme'], $parts['host'])
+            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true)
+            && trim((string) $parts['host']) !== '';
     }
 
     private function deliveryRatios(array $data): array

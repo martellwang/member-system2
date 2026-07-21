@@ -283,11 +283,12 @@ function renderStoreCodeRows() {
   if (!panel) return;
 
   if (!storeCodeRows.length) {
-    panel.innerHTML = '<div class="store-code-empty">目前尚無商店代號資料。</div>';
+    panel.innerHTML = `${renderStoreCodeChildNav('list')}<div class="store-code-empty">目前尚無商店代號資料。</div>`;
     return;
   }
 
   panel.innerHTML = `
+    ${renderStoreCodeChildNav('list')}
     <div class="table-card store-code-list-card">
       <table class="store-code-list-table">
         <thead>
@@ -343,6 +344,7 @@ function renderStoreCodePrefixDealerList() {
   }
 
   panel.innerHTML = `
+    ${renderStoreCodeChildNav('prefix')}
     <div class="table-card store-code-dealer-table-card">
       <table class="store-code-dealer-table">
         <thead>
@@ -397,6 +399,7 @@ function renderStoreCodePrefixWorkspace(mode = 'list', prefixId = null) {
   const isCreate = mode === 'create';
 
   panel.innerHTML = `
+    ${renderStoreCodeChildNav('prefix')}
     <div class="store-code-prefix-settings">
       <div class="store-code-prefix-header">
         <button type="button" class="btn btn-sm btn-outline" id="store-code-back-dealers">返回經銷商列表</button>
@@ -412,6 +415,15 @@ function renderStoreCodePrefixWorkspace(mode = 'list', prefixId = null) {
       <div class="store-code-prefix-content">
         ${isList ? renderStoreCodePrefixList() : renderStoreCodePrefixForm(mode)}
       </div>
+    </div>
+  `;
+}
+
+function renderStoreCodeChildNav(activeTab) {
+  return `
+    <div class="store-code-child-tab-row" aria-label="商店代號子功能">
+      <button type="button" class="store-code-child-tab ${activeTab === 'list' ? 'active' : ''}" data-store-code-child-tab="list">商店代號列表</button>
+      <button type="button" class="store-code-child-tab ${activeTab === 'prefix' ? 'active' : ''}" data-store-code-child-tab="prefix">前置碼設定</button>
     </div>
   `;
 }
@@ -847,8 +859,8 @@ function showStoreCodeManagement() {
   document.getElementById('staff-show-store-codes')?.classList.add('active');
   document.getElementById('staff-show-payment-upstream')?.classList.remove('active');
   resetStaffForm();
-  activateStoreCodeTab('prefix');
-  showStoreCodePrefixTab().catch(() => {
+  activateStoreCodeTab('list');
+  showStoreCodeListTab().catch(() => {
     const panel = document.getElementById('store-code-panel');
     if (panel) {
       panel.innerHTML = '<div class="store-code-empty">經銷商資料載入失敗，請稍後再試。</div>';
@@ -1064,24 +1076,31 @@ document.querySelectorAll('[data-device-banner]').forEach((button) => {
 document.querySelectorAll('[data-store-code-tab]').forEach((button) => {
   button.addEventListener('click', () => {
     activateStoreCodeTab(button.dataset.storeCodeTab);
-    if (button.dataset.storeCodeTab === 'prefix') {
+    showStoreCodeListTab().catch(() => {
+      const panel = document.getElementById('store-code-panel');
+      if (panel) {
+        panel.innerHTML = '<div class="store-code-empty">商店代號列表載入失敗，請稍後再試。</div>';
+      }
+    });
+  });
+});
+document.getElementById('store-code-panel')?.addEventListener('click', (event) => {
+  const childTab = event.target.closest('[data-store-code-child-tab]');
+  if (childTab) {
+    if (childTab.dataset.storeCodeChildTab === 'prefix') {
       showStoreCodePrefixTab().catch(() => {
         const panel = document.getElementById('store-code-panel');
-        if (panel) {
-          panel.innerHTML = '<div class="store-code-empty">經銷商資料載入失敗，請稍後再試。</div>';
-        }
+        if (panel) panel.innerHTML = `${renderStoreCodeChildNav('prefix')}<div class="store-code-empty">經銷商資料載入失敗，請稍後再試。</div>`;
       });
     } else {
       showStoreCodeListTab().catch(() => {
         const panel = document.getElementById('store-code-panel');
-        if (panel) {
-          panel.innerHTML = '<div class="store-code-empty">商店代號列表載入失敗，請稍後再試。</div>';
-        }
+        if (panel) panel.innerHTML = `${renderStoreCodeChildNav('list')}<div class="store-code-empty">商店代號列表載入失敗，請稍後再試。</div>`;
       });
     }
-  });
-});
-document.getElementById('store-code-panel')?.addEventListener('click', (event) => {
+    return;
+  }
+
   const dealerButton = event.target.closest('[data-store-code-dealer-id]');
   if (dealerButton) {
     renderStoreCodePrefixSettings(dealerButton.dataset.storeCodeDealerId).catch((error) => {

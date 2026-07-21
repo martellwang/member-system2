@@ -50,55 +50,46 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
 <div class="container edit-container">
   <aside class="admin-member-store-sidebar">
     <div class="card admin-member-store-card">
-      <div class="form-title">商店基本資料</div>
+      <div class="form-title">會員基本資料</div>
       <div class="form-subtitle">此區僅供檢視，不提供編輯。</div>
-      <?php if (!$stores): ?>
-        <div class="admin-store-readonly-empty">此會員尚未建立商店。</div>
-      <?php else: ?>
         <div class="admin-store-readonly-list">
-          <?php foreach ($stores as $store): ?>
-            <?php
-              $storeStatus = $storeStatusMap[$store['status'] ?? 'pending'] ?? $storeStatusMap['pending'];
-              $storeAddress = trim(($store['store_city'] ?? '') . ($store['store_district'] ?? '') . ($store['store_address'] ?? ''));
-            ?>
-            <section class="admin-store-readonly-item">
-              <div class="admin-store-readonly-head">
-                <strong><?= htmlspecialchars($store['store_name'] ?? '未命名商店', ENT_QUOTES) ?></strong>
-              </div>
+          <section class="admin-store-readonly-item">
               <dl>
                 <div>
-                  <dt>商店類型</dt>
-                  <dd><?= htmlspecialchars($storeTypeLabel($store), ENT_QUOTES) ?></dd>
+                  <dt>會員編號</dt>
+                  <dd><?= htmlspecialchars($member['member_code'] ?? '—', ENT_QUOTES) ?></dd>
+                </div>
+                <div>
+                  <dt>會員類型</dt>
+                  <dd><?= htmlspecialchars(($member['type'] ?? '') === 'company' ? '商業公司' : '個人用戶', ENT_QUOTES) ?></dd>
+                </div>
+                <div>
+                  <dt>姓名</dt>
+                  <dd><?= htmlspecialchars($member['name'] ?? '—', ENT_QUOTES) ?></dd>
                 </div>
                 <div>
                   <dt>電子信箱</dt>
-                  <dd><?= htmlspecialchars($store['store_email'] ?: '—', ENT_QUOTES) ?></dd>
+                  <dd><?= htmlspecialchars($member['email'] ?? '—', ENT_QUOTES) ?></dd>
                 </div>
                 <div>
-                  <dt>商店電話</dt>
-                  <dd><?= htmlspecialchars($store['store_phone'] ?: '—', ENT_QUOTES) ?></dd>
+                  <dt><?= ($member['type'] ?? '') === 'company' ? '統一編號' : '身分證號' ?></dt>
+                  <dd><?= htmlspecialchars(($member['type'] ?? '') === 'company' ? ($member['tax_id'] ?? '—') : ($member['id_number'] ?? '—'), ENT_QUOTES) ?></dd>
                 </div>
                 <div>
-                  <dt>聯絡人</dt>
-                  <dd><?= htmlspecialchars($store['contact_name'] ?: '—', ENT_QUOTES) ?></dd>
+                  <dt>手機電話</dt>
+                  <dd><?= htmlspecialchars($member['mobile_phone'] ?? '—', ENT_QUOTES) ?></dd>
                 </div>
                 <div>
-                  <dt>聯絡手機</dt>
-                  <dd><?= htmlspecialchars($store['contact_mobile'] ?: '—', ENT_QUOTES) ?></dd>
+                  <dt>聯絡地址</dt>
+                  <dd><?= htmlspecialchars(trim($contactCity . $contactDistrict . $contactAddressLine) ?: '—', ENT_QUOTES) ?></dd>
                 </div>
                 <div>
-                  <dt>商店地址</dt>
-                  <dd><?= htmlspecialchars($storeAddress !== '' ? $storeAddress : '—', ENT_QUOTES) ?></dd>
-                </div>
-                <div>
-                  <dt>建立日期</dt>
-                  <dd><?= htmlspecialchars(substr((string) ($store['created_at'] ?? ''), 0, 10) ?: '—', ENT_QUOTES) ?></dd>
+                  <dt>Line ID</dt>
+                  <dd><?= htmlspecialchars($member['line_id'] ?? '—', ENT_QUOTES) ?></dd>
                 </div>
               </dl>
-            </section>
-          <?php endforeach; ?>
+          </section>
         </div>
-      <?php endif; ?>
     </div>
   </aside>
 
@@ -128,13 +119,18 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
       <div class="card admin-store-empty">此會員尚未建立商店資料。</div>
     <?php else: ?>
       <div class="admin-store-list">
-        <?php foreach ($stores as $store): ?>
+        <div class="admin-store-list-heading" aria-hidden="true">
+          <span>序號</span>
+          <span>商店資料</span>
+        </div>
+        <?php foreach ($stores as $storeIndex => $store): ?>
           <?php
             $storeStatus = $storeStatusMap[$store['status'] ?? 'pending'] ?? $storeStatusMap['pending'];
             $paymentTools = $decodeJsonList($store['payment_tools'] ?? '[]');
             $storeId = (int) ($store['id'] ?? 0);
           ?>
           <article class="card admin-store-item" data-admin-store-item>
+            <div class="admin-store-index" aria-label="序號 <?= $storeIndex + 1 ?>"><?= $storeIndex + 1 ?></div>
             <div class="admin-store-summary">
               <div>
                 <div class="admin-store-title">
@@ -147,10 +143,22 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
                   <span>｜<?= htmlspecialchars($store['store_email'] ?? '', ENT_QUOTES) ?></span>
                 </p>
               </div>
-              <button type="button" class="btn btn-sm btn-outline" data-admin-store-toggle>編輯</button>
+            <button type="button" class="btn btn-sm btn-outline" data-admin-store-toggle>管理</button>
             </div>
 
             <form class="admin-store-form" data-admin-store-form data-member-id="<?= htmlspecialchars((string) $member['id'], ENT_QUOTES) ?>" data-store-id="<?= $storeId ?>" hidden>
+              <div class="admin-store-detail-tabs" role="tablist" aria-label="商店功能設定">
+                <button type="button" class="active" data-admin-store-tab="terms">商業條件及支付工具設定</button>
+                <button type="button" data-admin-store-tab="integration">串接設定</button>
+                <button type="button" data-admin-store-tab="invoice">電子發票</button>
+                <button type="button" data-admin-store-tab="details">詳細資訊</button>
+                <button type="button" data-admin-store-tab="limit">交易限制設定</button>
+                <button type="button" data-admin-store-tab="marketing">行銷工具設定</button>
+              </div>
+
+              <div class="admin-store-tab-hint" data-admin-store-tab-hint>商業條件、支付工具與下方商店資料可直接編輯。</div>
+
+              <section class="admin-store-setting-panel admin-store-tab-panel" data-admin-store-panel="details" hidden>
               <div class="section-label">商店資料</div>
               <div class="form-row">
                 <div class="form-group">
@@ -218,6 +226,9 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
                 </div>
               </div>
 
+              </section>
+
+              <section class="admin-store-setting-panel admin-store-tab-panel" data-admin-store-panel="terms">
               <div class="section-label">營運與串接資料</div>
               <div class="form-row">
                 <div class="form-group">
@@ -272,6 +283,60 @@ if ($contactAddressLine === '' && !empty($member['contact_address'])) {
                   </label>
                 <?php endforeach; ?>
               </div>
+
+              </section>
+
+              <section class="admin-store-setting-panel" data-admin-store-panel="integration" hidden>
+                <div class="section-label">串接設定</div>
+                <div class="form-row">
+                  <div class="form-group"><label>Hash Key</label><input type="text" name="integration_hash_key" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_hash_key'] ?? ''), ENT_QUOTES) ?>" autocomplete="off"></div>
+                  <div class="form-group"><label>IV Key</label><input type="text" name="integration_iv_key" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_iv_key'] ?? ''), ENT_QUOTES) ?>" autocomplete="off"></div>
+                  <div class="form-group"><label>Notify URL</label><input type="url" name="integration_notify_url" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_notify_url'] ?? ''), ENT_QUOTES) ?>"></div>
+                  <div class="form-group"><label>Return URL</label><input type="url" name="integration_return_url" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_return_url'] ?? ''), ENT_QUOTES) ?>"></div>
+                  <label class="checkbox-field"><input type="checkbox" name="integration_test_mode" value="1" <?= !empty($store['integration_test_mode']) ? 'checked' : '' ?>><span>啟用測試模式</span></label>
+                  <div class="form-group form-group-wide"><label>限定 API 的 IP（每行一筆 IP 或 CIDR）</label><textarea name="integration_allowed_ips" maxlength="2000" rows="3"><?= htmlspecialchars((string) ($store['integration_allowed_ips'] ?? ''), ENT_QUOTES) ?></textarea></div>
+                </div>
+                <div class="admin-store-switch-grid">
+                  <?php foreach ([
+                    'integration_credit_card_api_enabled' => '信用卡簽後授權 API', 'integration_refund_api_enabled' => '退款 API',
+                    'integration_token_api_enabled' => '信用卡 Token API', 'integration_non_card_refund_api_enabled' => '非信用卡退款 API',
+                    'integration_logistics_refund_api_enabled' => '物流簽後 API', 'integration_linepay_refund_api_enabled' => 'LINE Pay 簽後 API',
+                    'integration_member_free_api_enabled' => '免脈轉支付元件', 'integration_discount_refund_api_enabled' => '優惠券全額折抵簽後 API',
+                    'integration_street_payment_refund_api_enabled' => '街口支付簽後 API'
+                  ] as $field => $label): ?>
+                    <label class="checkbox-field"><input type="checkbox" name="<?= $field ?>" value="1" <?= !isset($store[$field]) || !empty($store[$field]) ? 'checked' : '' ?>><span><?= htmlspecialchars($label, ENT_QUOTES) ?></span></label>
+                  <?php endforeach; ?>
+                </div>
+              </section>
+
+              <section class="admin-store-setting-panel" data-admin-store-panel="invoice" hidden>
+                <div class="section-label">電子發票</div>
+                <div class="form-row">
+                  <label class="checkbox-field"><input type="checkbox" name="e_invoice_enabled" value="1" <?= !empty($store['e_invoice_enabled']) ? 'checked' : '' ?>><span>啟用電子發票</span></label>
+                  <div class="form-group"><label>電子發票加值中心</label><input type="text" name="e_invoice_center" maxlength="100" value="<?= htmlspecialchars((string) ($store['e_invoice_center'] ?? ''), ENT_QUOTES) ?>"></div>
+                  <div class="form-group"><label>預設發票捐贈單位</label><input type="text" name="e_invoice_gift_unit" maxlength="30" value="<?= htmlspecialchars((string) ($store['e_invoice_gift_unit'] ?? ''), ENT_QUOTES) ?>"></div>
+                  <label class="checkbox-field"><input type="checkbox" name="e_invoice_auto_issue" value="1" <?= !isset($store['e_invoice_auto_issue']) || $store['e_invoice_auto_issue'] ? 'checked' : '' ?>><span>付款完成後自動開立</span></label>
+                  <div class="form-group"><label>延後開立天數</label><input type="number" name="e_invoice_delay_days" min="1" max="30" value="<?= htmlspecialchars((string) ($store['e_invoice_delay_days'] ?? ''), ENT_QUOTES) ?>"></div>
+                </div>
+              </section>
+
+              <section class="admin-store-setting-panel" data-admin-store-panel="limit" hidden>
+                <div class="section-label">交易限制設定</div>
+                <div class="form-row">
+                  <label class="checkbox-field"><input type="checkbox" name="transaction_amount_limit_enabled" value="1" <?= !isset($store['transaction_amount_limit_enabled']) || $store['transaction_amount_limit_enabled'] ? 'checked' : '' ?>><span>啟用交易金額上限</span></label>
+                  <label class="checkbox-field"><input type="checkbox" name="expired_refund_enabled" value="1" <?= !empty($store['expired_refund_enabled']) ? 'checked' : '' ?>><span>接受逾期退款申請</span></label>
+                  <div class="form-group"><label>信用卡交易限制</label><select name="transaction_card_limit_mode"><option value="off" <?= ($store['transaction_card_limit_mode'] ?? 'off') === 'off' ? 'selected' : '' ?>>關閉</option><option value="blacklist" <?= ($store['transaction_card_limit_mode'] ?? '') === 'blacklist' ? 'selected' : '' ?>>黑名單模式</option><option value="whitelist" <?= ($store['transaction_card_limit_mode'] ?? '') === 'whitelist' ? 'selected' : '' ?>>白名單模式</option></select></div>
+                  <div class="form-group"><label>IP 交易限制</label><select name="transaction_ip_limit_mode"><option value="off" <?= ($store['transaction_ip_limit_mode'] ?? 'off') === 'off' ? 'selected' : '' ?>>關閉</option><option value="blacklist" <?= ($store['transaction_ip_limit_mode'] ?? '') === 'blacklist' ? 'selected' : '' ?>>黑名單模式</option><option value="whitelist" <?= ($store['transaction_ip_limit_mode'] ?? '') === 'whitelist' ? 'selected' : '' ?>>白名單模式</option></select></div>
+                </div>
+              </section>
+
+              <section class="admin-store-setting-panel" data-admin-store-panel="marketing" hidden>
+                <div class="section-label">行銷工具設定</div>
+                <div class="form-row">
+                  <label class="checkbox-field"><input type="checkbox" name="marketing_enabled" value="1" <?= !empty($store['marketing_enabled']) ? 'checked' : '' ?>><span>啟用行銷工具</span></label>
+                  <div class="form-group form-group-wide"><label>行銷備註</label><textarea name="marketing_notes" maxlength="400" rows="4"><?= htmlspecialchars((string) ($store['marketing_notes'] ?? ''), ENT_QUOTES) ?></textarea><div class="field-hint">最多 400 字。</div></div>
+                </div>
+              </section>
 
               <div class="alert alert-success admin-store-success">商店資料已更新。</div>
               <div class="alert alert-danger admin-store-error"><span>商店資料更新失敗。</span></div>

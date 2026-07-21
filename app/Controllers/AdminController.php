@@ -884,8 +884,42 @@ class AdminController extends Controller
         if (!empty($data['store_email']) && !filter_var($data['store_email'], FILTER_VALIDATE_EMAIL)) {
             $errors['store_email'] = '商店電子信箱格式不正確。';
         }
-        if (!empty($data['store_url']) && !filter_var($data['store_url'], FILTER_VALIDATE_URL)) {
+        $storeUrlType = trim((string) ($data['store_url_type'] ?? 'url'));
+        if (!in_array($storeUrlType, ['url', 'none'], true)) {
+            $errors['store_url_type'] = '商店網址類型不正確。';
+        }
+        if ($storeUrlType === 'url' && !$this->isCompliantStoreUrl(trim((string) ($data['store_url'] ?? '')))) {
             $errors['store_url'] = '商店網址格式不正確。';
+        }
+        $cardLimitMode = (string) ($data['transaction_card_limit_mode'] ?? 'off');
+        $ipLimitMode = (string) ($data['transaction_ip_limit_mode'] ?? 'off');
+        if (!in_array($cardLimitMode, ['off', 'blacklist', 'whitelist'], true)) {
+            $errors['transaction_card_limit_mode'] = '信用卡交易限制模式不正確。';
+        }
+        if (!in_array($ipLimitMode, ['off', 'blacklist', 'whitelist'], true)) {
+            $errors['transaction_ip_limit_mode'] = 'IP 交易限制模式不正確。';
+        }
+        $delayDays = ($data['e_invoice_delay_days'] ?? '') === '' ? null : (int) $data['e_invoice_delay_days'];
+        if ($delayDays !== null && ($delayDays < 1 || $delayDays > 30)) {
+            $errors['e_invoice_delay_days'] = '電子發票延後開立天數必須介於 1 至 30 天。';
+        }
+        $marketingNotes = trim((string) ($data['marketing_notes'] ?? ''));
+        if (mb_strlen($marketingNotes) > 400) {
+            $errors['marketing_notes'] = '行銷備註不可超過 400 字。';
+        }
+        $integrationIps = trim((string) ($data['integration_allowed_ips'] ?? ''));
+        foreach (preg_split('/\R/', $integrationIps) ?: [] as $ip) {
+            $ip = trim($ip);
+            if ($ip !== '' && !$this->isValidIpRule($ip)) {
+                $errors['integration_allowed_ips'] = '串接限定 IP 必須是有效的 IP 或 CIDR。';
+                break;
+            }
+        }
+        foreach (['integration_notify_url', 'integration_return_url'] as $urlField) {
+            $url = trim((string) ($data[$urlField] ?? ''));
+            if ($url !== '' && !$this->isCompliantStoreUrl($url)) {
+                $errors[$urlField] = '串接網址格式不正確。';
+            }
         }
         if ($errors) {
             $this->json(['errors' => $errors], 422);
@@ -920,13 +954,52 @@ class AdminController extends Controller
             'guarantee_note' => trim((string) ($data['guarantee_note'] ?? '')),
             'average_order_amount' => trim((string) ($data['average_order_amount'] ?? '')),
             'store_url_type' => trim((string) ($data['store_url_type'] ?? 'url')),
-            'store_url' => trim((string) ($data['store_url'] ?? '')),
+            'store_url' => $storeUrlType === 'none' ? '' : trim((string) ($data['store_url'] ?? '')),
             'store_description' => trim((string) ($data['store_description'] ?? '')),
             'payment_tools' => json_encode(array_values($paymentTools), JSON_UNESCAPED_UNICODE),
+            'integration_hash_key' => trim((string) ($data['integration_hash_key'] ?? '')) ?: null,
+            'integration_iv_key' => trim((string) ($data['integration_iv_key'] ?? '')) ?: null,
+            'integration_notify_url' => trim((string) ($data['integration_notify_url'] ?? '')) ?: null,
+            'integration_return_url' => trim((string) ($data['integration_return_url'] ?? '')) ?: null,
+            'integration_test_mode' => filter_var($data['integration_test_mode'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_allowed_ips' => $integrationIps !== '' ? $integrationIps : null,
+            'integration_credit_card_api_enabled' => filter_var($data['integration_credit_card_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_refund_api_enabled' => filter_var($data['integration_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_token_api_enabled' => filter_var($data['integration_token_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_non_card_refund_api_enabled' => filter_var($data['integration_non_card_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_logistics_refund_api_enabled' => filter_var($data['integration_logistics_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_linepay_refund_api_enabled' => filter_var($data['integration_linepay_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_member_free_api_enabled' => filter_var($data['integration_member_free_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_discount_refund_api_enabled' => filter_var($data['integration_discount_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'integration_street_payment_refund_api_enabled' => filter_var($data['integration_street_payment_refund_api_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'e_invoice_enabled' => filter_var($data['e_invoice_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'e_invoice_center' => trim((string) ($data['e_invoice_center'] ?? '')) ?: null,
+            'e_invoice_gift_unit' => trim((string) ($data['e_invoice_gift_unit'] ?? '')) ?: null,
+            'e_invoice_auto_issue' => filter_var($data['e_invoice_auto_issue'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'e_invoice_delay_days' => $delayDays,
+            'transaction_amount_limit_enabled' => filter_var($data['transaction_amount_limit_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'expired_refund_enabled' => filter_var($data['expired_refund_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'transaction_card_limit_mode' => $cardLimitMode,
+            'transaction_ip_limit_mode' => $ipLimitMode,
+            'marketing_enabled' => filter_var($data['marketing_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'marketing_notes' => $marketingNotes ?: null,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
         $this->json(['message' => '商店資料已更新。']);
+    }
+
+    private function isCompliantStoreUrl(string $value): bool
+    {
+        if ($value === '' || !filter_var($value, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        $parts = parse_url($value);
+        return is_array($parts)
+            && isset($parts['scheme'], $parts['host'])
+            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true)
+            && trim((string) $parts['host']) !== '';
     }
 
     /** POST /api/admin/members/{id}/resend-verification — 重寄會員信箱驗證與密碼設定信 */
@@ -1160,9 +1233,7 @@ class AdminController extends Controller
 
     private function absoluteUrl(string $path = ''): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        return $scheme . '://' . $host . $this->baseUrl($path);
+        return rtrim(APP_URL, '/') . '/' . ltrim($path, '/');
     }
 
     private function isValidPasswordSetupToken(array|false $admin): bool

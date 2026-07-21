@@ -96,8 +96,148 @@ document.querySelectorAll('.store-detail-shell').forEach((shell) => {
   });
 });
 
+document.querySelectorAll('[data-store-invoice-form]').forEach((form) => {
+  const enabled = form.querySelector('[data-invoice-enabled]');
+  const autoIssue = form.querySelector('[data-invoice-auto]');
+  const delay = form.querySelector('[data-invoice-delay]');
+  const delayedMode = form.querySelector('input[value="delayed"]');
+  const message = form.querySelector('[data-invoice-message]');
+
+  const syncInvoiceFields = () => {
+    const isDelayed = delayedMode?.checked === true;
+    if (delay) delay.disabled = !isDelayed || autoIssue?.checked !== true;
+    if (enabled) form.classList.toggle('is-invoice-disabled', !enabled.checked);
+  };
+
+  form.querySelectorAll('input[name^="e_invoice_issue_mode_"]').forEach((input) => input.addEventListener('change', syncInvoiceFields));
+  enabled?.addEventListener('change', syncInvoiceFields);
+  autoIssue?.addEventListener('change', syncInvoiceFields);
+  syncInvoiceFields();
+
+  form.querySelectorAll('[data-invoice-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (message) message.textContent = '此功能將於完成電子發票服務串接後開放。';
+    });
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (delay && !delay.disabled && !delay.value) {
+      if (message) message.textContent = '請選擇延後開立天數。';
+      delay.focus();
+      return;
+    }
+
+    const payload = {
+      e_invoice_enabled: enabled?.checked === true,
+      e_invoice_center: form.querySelector('[name="e_invoice_center"]')?.value || '',
+      e_invoice_gift_unit: form.querySelector('[name="e_invoice_gift_unit"]')?.value || '',
+      e_invoice_auto_issue: autoIssue?.checked !== false,
+      e_invoice_delay_days: delay?.disabled ? null : Number(delay.value),
+    };
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(`${APP_BASE}/api/members/stores/${form.dataset.storeId}/invoice-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || '儲存失敗。');
+      if (message) message.textContent = result.message || '電子發票設定已儲存。';
+    } catch (error) {
+      if (message) message.textContent = error.message;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+});
+
+document.querySelectorAll('[data-store-integration-form]').forEach((form) => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const message = form.querySelector('[data-integration-message]');
+    const button = form.querySelector('button[type="submit"]');
+    const payload = {};
+
+    form.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      payload[input.name] = input.checked;
+    });
+    form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach((input) => {
+      payload[input.name] = input.value.trim();
+    });
+
+    if (button) button.disabled = true;
+    if (message) message.textContent = '';
+    try {
+      const response = await fetch(`${APP_BASE}/api/members/stores/${form.dataset.storeId}/integration-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || '串接設定儲存失敗。');
+      if (message) message.textContent = result.message || '串接設定已儲存。';
+    } catch (error) {
+      if (message) message.textContent = error.message;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+});
+
 const storeForm = document.getElementById('member-store-form');
 const storeMessage = document.getElementById('member-store-message');
+const storeUrlInput = document.getElementById('member-store-url');
+const storeUrlTypeInputs = storeForm?.querySelectorAll('input[name="store_url_type"]') || [];
+
+if (storeForm && typeof bindTaiwanAddressSelects === 'function') {
+  bindTaiwanAddressSelects('member-store-city', 'member-store-district');
+}
+
+function syncStoreUrlField() {
+  if (!storeUrlInput) return;
+  const selectedType = storeForm?.querySelector('input[name="store_url_type"]:checked')?.value || 'url';
+  const enabled = selectedType === 'url';
+  storeUrlInput.disabled = !enabled;
+  storeUrlInput.required = enabled;
+  if (!enabled) storeUrlInput.value = '';
+}
+
+storeUrlTypeInputs.forEach((input) => input.addEventListener('change', syncStoreUrlField));
+syncStoreUrlField();
+
+const contactMobileInput = storeForm?.querySelector('[name="contact_mobile"]');
+const contactPhoneInput = storeForm?.querySelector('[name="contact_phone"]');
+const contactPhoneAreaCode = storeForm?.querySelector('[name="contact_phone_area_code"]');
+const contactMobileRequiredMark = storeForm?.querySelector('[data-contact-required="mobile"]');
+const contactPhoneRequiredMark = storeForm?.querySelector('[data-contact-required="phone"]');
+
+function syncContactPhoneRequirements() {
+  const hasMobile = Boolean(contactMobileInput?.value.trim());
+  const hasPhone = Boolean(contactPhoneInput?.value.trim());
+  const phoneRequired = !hasMobile;
+  const mobileRequired = !hasPhone;
+  if (contactMobileInput) contactMobileInput.required = mobileRequired;
+  if (contactPhoneInput) contactPhoneInput.required = phoneRequired;
+  if (contactPhoneAreaCode) contactPhoneAreaCode.required = phoneRequired;
+  if (contactMobileRequiredMark) contactMobileRequiredMark.hidden = !mobileRequired;
+  if (contactPhoneRequiredMark) contactPhoneRequiredMark.hidden = !phoneRequired;
+}
+
+contactMobileInput?.addEventListener('input', syncContactPhoneRequirements);
+contactPhoneInput?.addEventListener('input', syncContactPhoneRequirements);
+syncContactPhoneRequirements();
+
+function isCompliantStoreUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname !== '';
+  } catch {
+    return false;
+  }
+}
 
 function setStoreMessage(message, type = '') {
   if (!storeMessage) return;
@@ -124,6 +264,13 @@ function formPayload(form) {
 storeForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   setStoreMessage('');
+
+  const storeUrlType = storeForm.querySelector('input[name="store_url_type"]:checked')?.value || 'url';
+  if (storeUrlType === 'url' && (!storeUrlInput?.value.trim() || !isCompliantStoreUrl(storeUrlInput.value.trim()))) {
+    setStoreMessage('請輸入有效的商店網址，網址必須以 http:// 或 https:// 開頭並包含網域。', 'error');
+    storeUrlInput?.focus();
+    return;
+  }
 
   const submitButton = storeForm.querySelector('button[type="submit"]');
   const originalText = submitButton?.textContent || '新增商店';
@@ -162,4 +309,33 @@ storeForm?.addEventListener('submit', async (event) => {
       submitButton.textContent = originalText;
     }
   }
+});
+
+document.querySelectorAll('[data-store-transaction-form]').forEach((form) => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const message = form.querySelector('[data-transaction-message]');
+    const button = form.querySelector('button[type="submit"]');
+    const payload = {
+      transaction_amount_limit_enabled: form.querySelector('[name="transaction_amount_limit_enabled"]')?.checked === true,
+      expired_refund_enabled: form.querySelector('[name="expired_refund_enabled"]')?.checked === true,
+      transaction_card_limit_mode: form.querySelector('[name="transaction_card_limit_mode"]:checked')?.value || 'off',
+      transaction_ip_limit_mode: form.querySelector('[name="transaction_ip_limit_mode"]:checked')?.value || 'off',
+    };
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(`${APP_BASE}/api/members/stores/${form.dataset.storeId}/transaction-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || '儲存失敗。');
+      if (message) message.textContent = result.message || '交易限制設定已儲存。';
+    } catch (error) {
+      if (message) message.textContent = error.message;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 });

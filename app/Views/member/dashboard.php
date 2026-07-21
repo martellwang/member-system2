@@ -353,26 +353,156 @@ $decodeJsonList = static function ($value): array {
           </div>
 
           <div class="store-detail-tab-panel" data-store-detail-tab-panel="integration">
-            <div class="card store-detail-info-card">
-              <h3>串接設定</h3>
-              <div class="detail-grid">
-                <div><span>商店代號</span><strong><?= htmlspecialchars($displayCode, ENT_QUOTES) ?></strong></div>
-                <div><span>商店網址</span><strong><?= htmlspecialchars($store['store_url'] ?: '—', ENT_QUOTES) ?></strong></div>
-                <div><span>串接狀態</span><strong>尚未設定</strong></div>
-                <div><span>測試模式</span><strong>未啟用</strong></div>
-              </div>
-            </div>
+            <?php
+              $integrationFlags = [
+                'integration_credit_card_api_enabled' => '信用卡簽後授權 API',
+                'integration_refund_api_enabled' => '退款 API',
+                'integration_token_api_enabled' => '信用卡 Token API',
+                'integration_non_card_refund_api_enabled' => '非信用卡退款 API',
+                'integration_logistics_refund_api_enabled' => '物流簽後 API',
+                'integration_linepay_refund_api_enabled' => 'LINE Pay 簽後 API',
+                'integration_member_free_api_enabled' => '免脈轉支付元件',
+                'integration_discount_refund_api_enabled' => '優惠券全額折抵簽後 API',
+                'integration_street_payment_refund_api_enabled' => '街口支付簽後 API',
+              ];
+            ?>
+            <form class="store-integration-settings" data-store-integration-form data-store-id="<?= (int) ($store['id'] ?? 0) ?>">
+              <section class="integration-section">
+                <div class="integration-section-heading"><h3>API 串接金鑰</h3><span>商店代號：<strong><?= htmlspecialchars($displayCode, ENT_QUOTES, 'UTF-8') ?></strong></span></div>
+                <div class="integration-grid">
+                  <div class="form-group"><label>Hash Key</label><input type="text" name="integration_hash_key" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_hash_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" autocomplete="off"></div>
+                  <div class="form-group"><label>IV Key</label><input type="text" name="integration_iv_key" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_iv_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" autocomplete="off"></div>
+                </div>
+              </section>
+              <section class="integration-section">
+                <h3>API URL</h3>
+                <div class="integration-grid">
+                  <div class="form-group"><label>Notify URL</label><input type="url" name="integration_notify_url" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_notify_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="https://example.com/notify"></div>
+                  <div class="form-group"><label>Return URL</label><input type="url" name="integration_return_url" maxlength="255" value="<?= htmlspecialchars((string) ($store['integration_return_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="https://example.com/return"></div>
+                </div>
+              </section>
+              <section class="integration-section">
+                <div class="integration-section-heading"><h3>串接模式</h3><label class="switch-control"><input type="checkbox" name="integration_test_mode" value="1" <?= !empty($store['integration_test_mode']) ? 'checked' : '' ?>><span class="switch-control-track" aria-hidden="true"></span><span>測試模式</span></label></div>
+                <div class="integration-api-grid">
+                  <?php foreach ($integrationFlags as $field => $label): ?>
+                    <label class="integration-api-item"><span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span><span class="switch-control"><input type="checkbox" name="<?= $field ?>" value="1" <?= !isset($store[$field]) || !empty($store[$field]) ? 'checked' : '' ?>><span class="switch-control-track" aria-hidden="true"></span><small>啟用</small></span></label>
+                  <?php endforeach; ?>
+                </div>
+              </section>
+              <section class="integration-section">
+                <h3>限定 API 之 IP 設定</h3>
+                <p class="form-hint">每行輸入一個 IP 或 CIDR，例如 34.80.239.196 或 192.168.1.0/24；留白代表不限制來源 IP。</p>
+                <textarea name="integration_allowed_ips" maxlength="2000" rows="4" placeholder="例如 34.80.239.196&#10;192.168.1.0/24"><?= htmlspecialchars((string) ($store['integration_allowed_ips'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+              </section>
+              <div class="store-invoice-actions"><span class="store-invoice-message" data-integration-message role="status"></span><button type="submit" class="btn btn-primary">儲存設定</button></div>
+            </form>
           </div>
 
           <div class="store-detail-tab-panel" data-store-detail-tab-panel="invoice">
-            <div class="card store-detail-info-card">
-              <h3>電子發票</h3>
-              <p>電子發票功能待後續串接時設定。</p>
-            </div>
+            <form class="store-invoice-settings" data-store-invoice-form data-store-id="<?= (int) ($store['id'] ?? 0) ?>">
+              <div class="store-invoice-topbar">
+                <strong>電子發票設定</strong>
+                <label class="switch-control">
+                  <input type="checkbox" name="e_invoice_enabled" value="1" <?= !empty($store['e_invoice_enabled']) ? 'checked' : '' ?> data-invoice-enabled>
+                  <span class="switch-control-track" aria-hidden="true"></span>
+                  <span>啟用</span>
+                </label>
+              </div>
+
+              <section class="store-invoice-section">
+                <h3>電子發票加值中心</h3>
+                <div class="store-invoice-field-row">
+                  <div class="form-group">
+                    <label for="invoice-center-<?= (int) ($store['id'] ?? 0) ?>">加值中心</label>
+                    <select id="invoice-center-<?= (int) ($store['id'] ?? 0) ?>" name="e_invoice_center">
+                      <option value="">請選擇電子發票加值中心</option>
+                      <option value="光貿電子發票加值中心" <?= ($store['e_invoice_center'] ?? '') === '光貿電子發票加值中心' ? 'selected' : '' ?>>光貿電子發票加值中心</option>
+                    </select>
+                  </div>
+                  <button type="button" class="btn btn-dark btn-sm" data-invoice-action="register">前往註冊</button>
+                </div>
+                <p class="form-hint invoice-center-hint">完成註冊後，可向加值中心查詢 APP KEY。</p>
+                <button type="button" class="btn btn-dark btn-sm" data-invoice-action="app-key">查詢 APP KEY</button>
+              </section>
+
+              <section class="store-invoice-section">
+                <h3>預設發票捐贈單位 <span class="info-mark" title="可設定預設捐贈碼">i</span></h3>
+                <div class="store-invoice-field-row">
+                  <input type="text" name="e_invoice_gift_unit" maxlength="30" value="<?= htmlspecialchars((string) ($store['e_invoice_gift_unit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="請輸入發票捐贈單位">
+                  <button type="button" class="btn btn-dark btn-sm" data-invoice-action="gift-unit">前往查詢捐贈碼</button>
+                </div>
+              </section>
+
+              <section class="store-invoice-section">
+                <div class="store-invoice-setting-row">
+                  <h3>自動開立 <span class="info-mark" title="設定付款完成後的開立時間">i</span></h3>
+                  <label class="switch-control">
+                    <input type="checkbox" name="e_invoice_auto_issue" value="1" <?= !isset($store['e_invoice_auto_issue']) || $store['e_invoice_auto_issue'] ? 'checked' : '' ?> data-invoice-auto>
+                    <span class="switch-control-track" aria-hidden="true"></span>
+                    <span>啟用</span>
+                  </label>
+                  <div class="invoice-issue-options">
+                    <label><input type="radio" name="e_invoice_issue_mode_<?= (int) ($store['id'] ?? 0) ?>" value="instant" checked> 即時開立：於付款完成或信用卡請款成功當日開立電子發票。</label>
+                    <label><input type="radio" name="e_invoice_issue_mode_<?= (int) ($store['id'] ?? 0) ?>" value="delayed"> 延後開立：付款完成或信用卡請款成功日起
+                      <select name="e_invoice_delay_days" data-invoice-delay <?= !empty($store['e_invoice_auto_issue']) || !isset($store['e_invoice_auto_issue']) ? 'disabled' : '' ?>>
+                        <option value="">請選擇</option>
+                        <?php for ($days = 1; $days <= 30; $days++): ?>
+                          <option value="<?= $days ?>" <?= (int) ($store['e_invoice_delay_days'] ?? 0) === $days ? 'selected' : '' ?>><?= $days ?></option>
+                        <?php endfor; ?>
+                      </select> 日開立電子發票。
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <div class="store-invoice-actions">
+                <span class="store-invoice-message" data-invoice-message role="status"></span>
+                <button type="submit" class="btn btn-primary">儲存設定</button>
+              </div>
+            </form>
           </div>
 
           <div class="store-detail-tab-panel" data-store-detail-tab-panel="details">
-            <div class="card store-detail-info-card">
+            <div class="store-detail-reference-layout">
+              <section class="store-detail-reference-section">
+                <h3>基本資料</h3>
+                <div class="store-detail-reference-grid">
+                  <div><span>商店代號</span><strong><?= htmlspecialchars($displayCode, ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店類型</span><strong><?= htmlspecialchars($storeTypeLabel($store), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店名稱</span><strong><?= htmlspecialchars((string) ($store['store_name'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>國外卡英文帳單名稱</span><strong><?= htmlspecialchars((string) ($store['foreign_statement_name'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                </div>
+              </section>
+
+              <section class="store-detail-reference-section">
+                <h3>販售商品資訊</h3>
+                <div class="store-detail-reference-grid">
+                  <div><span>產業類別</span><strong><?= htmlspecialchars((string) ($store['industry'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>販售商品類型</span><strong><?= htmlspecialchars((string) ($store['product_type'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>履約保證類型</span><strong><?= htmlspecialchars((string) ($store['guarantee_type'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商品交付完成期間</span><strong><?= htmlspecialchars(trim((string) ($store['delivery_period'] ?? '0') . ' ' . (string) ($store['delivery_unit'] ?? '個月')), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>履約保證說明</span><strong><?= htmlspecialchars((string) ($store['guarantee_note'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>販售商品平均客單價</span><strong><?= htmlspecialchars((string) ($store['average_order_amount'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店網址</span><strong><?= $store['store_url'] ? '<a href="' . htmlspecialchars((string) $store['store_url'], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer">' . htmlspecialchars((string) $store['store_url'], ENT_QUOTES, 'UTF-8') . '</a>' : '—' ?></strong></div>
+                  <div class="store-detail-reference-wide"><span>商店營運說明</span><strong><?= htmlspecialchars((string) ($store['store_description'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                </div>
+              </section>
+
+              <section class="store-detail-reference-section">
+                <h3>聯繫資訊</h3>
+                <div class="store-detail-reference-grid">
+                  <div><span>聯絡人中文姓名</span><strong><?= htmlspecialchars((string) ($store['contact_name'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店 E-Mail</span><strong><?= htmlspecialchars((string) ($store['store_email'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店電話</span><strong><?= htmlspecialchars((string) ($store['store_phone'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>商店傳真</span><strong><?= htmlspecialchars((string) ($store['store_fax'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>聯絡人電話</span><strong><?= htmlspecialchars(trim((string) ($store['contact_phone_area_code'] ?? '') . ' ' . (string) ($store['contact_phone'] ?? '')) ?: '—', ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div><span>聯絡人行動電話</span><strong><?= htmlspecialchars((string) ($store['contact_mobile'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+                  <div class="store-detail-reference-wide"><span>商店地址</span><strong><?= htmlspecialchars(trim((string) ($store['store_city'] ?? '') . ' ' . (string) ($store['store_district'] ?? '') . ' ' . (string) ($store['store_address'] ?? '')) ?: '—', ENT_QUOTES, 'UTF-8') ?></strong></div>
+                </div>
+              </section>
+            </div>
+
+            <div class="card store-detail-info-card legacy-details-card">
               <h3>詳細資訊</h3>
               <div class="detail-grid">
                 <div><span>商店名稱</span><strong><?= htmlspecialchars($store['store_name'] ?? '—', ENT_QUOTES) ?></strong></div>
@@ -388,10 +518,42 @@ $decodeJsonList = static function ($value): array {
           </div>
 
           <div class="store-detail-tab-panel" data-store-detail-tab-panel="limit">
-            <div class="card store-detail-info-card">
-              <h3>交易限制設定</h3>
-              <p>交易金額、交易筆數與風控限制將於後續功能開發。</p>
-            </div>
+            <form class="store-transaction-settings" data-store-transaction-form data-store-id="<?= (int) ($store['id'] ?? 0) ?>">
+              <div class="transaction-setting-card transaction-setting-summary">
+                <div>
+                  <h3>開放交易金額上限</h3>
+                  <p>可依商店需求啟用交易金額上限控管。</p>
+                </div>
+                <label class="switch-control">
+                  <input type="checkbox" name="transaction_amount_limit_enabled" value="1" <?= !isset($store['transaction_amount_limit_enabled']) || $store['transaction_amount_limit_enabled'] ? 'checked' : '' ?>>
+                  <span class="switch-control-track" aria-hidden="true"></span><span>啟用</span>
+                </label>
+              </div>
+              <div class="transaction-setting-card transaction-setting-summary">
+                <div><h3>開放交易金額下限</h3><p>交易金額下限將於後續功能開發。</p></div>
+              </div>
+              <div class="transaction-setting-card transaction-setting-summary">
+                <div><h3>逾期請退款申請</h3><p>可設定是否接受逾期退款申請。</p></div>
+                <label class="switch-control">
+                  <input type="checkbox" name="expired_refund_enabled" value="1" <?= !empty($store['expired_refund_enabled']) ? 'checked' : '' ?>><span class="switch-control-track" aria-hidden="true"></span><span>啟用</span>
+                </label>
+              </div>
+              <div class="transaction-mode-card">
+                <label>信用卡交易限制</label>
+                <?php $cardMode = $store['transaction_card_limit_mode'] ?? 'off'; ?>
+                <label><input type="radio" name="transaction_card_limit_mode" value="off" <?= $cardMode === 'off' ? 'checked' : '' ?>> 關閉信用卡交易限制</label>
+                <label><input type="radio" name="transaction_card_limit_mode" value="blacklist" <?= $cardMode === 'blacklist' ? 'checked' : '' ?>> 啟用信用卡黑名單模式</label>
+                <label><input type="radio" name="transaction_card_limit_mode" value="whitelist" <?= $cardMode === 'whitelist' ? 'checked' : '' ?>> 啟用信用卡白名單模式</label>
+              </div>
+              <div class="transaction-mode-card">
+                <label>IP 交易限制</label>
+                <?php $ipMode = $store['transaction_ip_limit_mode'] ?? 'off'; ?>
+                <label><input type="radio" name="transaction_ip_limit_mode" value="off" <?= $ipMode === 'off' ? 'checked' : '' ?>> 關閉 IP 交易限制</label>
+                <label><input type="radio" name="transaction_ip_limit_mode" value="blacklist" <?= $ipMode === 'blacklist' ? 'checked' : '' ?>> 啟用 IP 黑名單模式</label>
+                <label><input type="radio" name="transaction_ip_limit_mode" value="whitelist" <?= $ipMode === 'whitelist' ? 'checked' : '' ?>> 啟用 IP 白名單模式</label>
+              </div>
+              <div class="store-invoice-actions"><span class="store-invoice-message" data-transaction-message role="status"></span><button type="submit" class="btn btn-primary">儲存設定</button></div>
+            </form>
           </div>
 
           <div class="store-detail-tab-panel" data-store-detail-tab-panel="marketing">
@@ -445,7 +607,7 @@ $decodeJsonList = static function ($value): array {
             <div class="form-group form-group-wide">
               <label><span class="required">*</span> 商店聯絡地址</label>
               <div class="store-address-row">
-                <select name="store_city">
+                <select id="member-store-city" name="store_city" aria-label="縣市">
                   <option value="">縣市別</option>
                   <option>臺北市</option>
                   <option>新北市</option>
@@ -454,7 +616,7 @@ $decodeJsonList = static function ($value): array {
                   <option>臺南市</option>
                   <option>高雄市</option>
                 </select>
-                <select name="store_district">
+                <select id="member-store-district" name="store_district" aria-label="行政區">
                   <option value="">行政區</option>
                   <option>中正區</option>
                   <option>大安區</option>
@@ -474,14 +636,22 @@ $decodeJsonList = static function ($value): array {
               <input type="text" name="contact_name">
             </div>
             <div class="form-group">
-              <label><span class="required">*</span> 聯絡人手機號碼</label>
-              <input type="text" name="contact_mobile">
-              <div class="field-hint">請輸入電話號碼且手機號碼擇一填寫。</div>
+                <label><span class="required" data-contact-required="mobile">*</span> 聯絡人手機號碼</label>
+              <input type="text" name="contact_mobile" inputmode="tel" placeholder="0912-345-678">
+              <div class="field-hint">手機或市話擇一填寫。</div>
             </div>
             <div class="form-group">
-              <label><span class="required">*</span> 聯絡人電話</label>
-              <input type="text" name="contact_phone">
-              <div class="field-hint">長度 20 碼可接受符號。</div>
+                <label><span class="required" data-contact-required="phone">*</span> 聯絡人電話</label>
+              <div class="phone-input-group contact-phone-group">
+                <select name="contact_phone_area_code" aria-label="聯絡人電話區碼">
+                  <option value="">區碼</option>
+                  <?php foreach (['02' => '02 北北基', '03' => '03 桃竹花宜', '037' => '037 苗栗', '04' => '04 中彰', '049' => '049 南投', '05' => '05 雲嘉', '06' => '06 南市澎湖', '07' => '07 高雄', '08' => '08 屏東', '089' => '089 臺東', '082' => '082 金門', '0826' => '0826 烏坵', '0836' => '0836 馬祖'] as $code => $label): ?>
+                    <option value="<?= $code ?>"><?= $label ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <input type="text" name="contact_phone" inputmode="tel" placeholder="例如 1234567">
+              </div>
+              <div class="field-hint">手機或市話擇一填寫；市話請選區碼並輸入 6 至 8 碼。</div>
             </div>
           </div>
         </div>
@@ -556,7 +726,7 @@ $decodeJsonList = static function ($value): array {
               <label><span class="required">*</span> 商店網址</label>
               <div class="radio-stack">
                 <label><input type="radio" name="store_url_type" value="url" checked> 請輸入販售商品網址</label>
-                <input type="url" name="store_url" placeholder="請輸入 https:// 或 http:// 開頭之有效網址">
+                <input id="member-store-url" class="store-url-input" type="url" name="store_url" maxlength="255" autocomplete="url" placeholder="請輸入 https:// 或 http:// 開頭之有效網址">
                 <label><input type="radio" name="store_url_type" value="none"> 無網址</label>
               </div>
             </div>
@@ -614,4 +784,5 @@ $decodeJsonList = static function ($value): array {
   </main>
 </div>
 
+<script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/taiwan-address.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/taiwan-address.js') ?>"></script>
 <script src="<?= htmlspecialchars($appBase, ENT_QUOTES) ?>/assets/js/member-dashboard.js?v=<?= filemtime(BASE_PATH . '/public/assets/js/member-dashboard.js') ?>"></script>

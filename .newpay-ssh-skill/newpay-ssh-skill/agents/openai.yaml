@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewPay SSH 部署"
+  short_description: "部署 NewPay 會員系統與資料庫到遠端網站"
+  default_prompt: "使用 newpay-ssh-skill 將目前專案部署到 www.newpay.com.tw/member，先備份遠端資料庫，再以 UTF-8 安全同步程式與資料庫，最後只做必要的快速確認。"

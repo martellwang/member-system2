@@ -197,8 +197,7 @@
         <div class="form-title">商店代號管理</div>
         <div class="form-subtitle">後續可在此管理商店代號規則、產生紀錄與商店代號狀態。</div>
         <div class="store-code-tab-row">
-          <button type="button" class="store-code-tab active" data-store-code-tab="prefix">前置碼設定</button>
-          <button type="button" class="store-code-tab" data-store-code-tab="list">商店代號列表</button>
+          <button type="button" class="store-code-tab active" data-store-code-tab="list">商店代號列表</button>
         </div>
         <div class="store-code-panel" id="store-code-panel" aria-live="polite">
         </div>

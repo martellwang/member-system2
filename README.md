@@ -92,6 +92,48 @@ XAMPP 本機網址：
 - 根目錄與 `public/` 皆有 rewrite 設定，方便放在 `C:\xampp\htdocs\member-system2`。
 - `.env` 會由 `config/env.php` 載入；正式設定請使用本機 `.env`，不要提交到 Git。
 
+## 環境與寄信設定
+
+系統會用 `APP_URL` 產生會員驗證信、會員重寄驗證信、管理人員密碼設定信與 Google OAuth callback 的絕對網址。正式站請設定：
+
+```env
+APP_URL=https://www.newpay.com.tw/member
+APP_ENV=production
+```
+
+本機 XAMPP 請使用：
+
+```env
+APP_URL=http://localhost/member-system2
+APP_ENV=development
+```
+
+SMTP 設定集中於 `.env`，可參考 [docs/env.local.example](docs/env.local.example) 與 [docs/env.production.example](docs/env.production.example)。正式環境請至少確認：
+
+- `MAIL_HOST`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD` 使用正式 SMTP 或機密管理服務注入。
+- `MAIL_ENCRYPTION=tls` 或 `ssl`，且 `MAIL_VERIFY_PEER=true`。
+- `MAIL_EHLO_DOMAIN=www.newpay.com.tw`，避免 SMTP 對話使用 localhost。
+- `.env` 不提交 Git，正式密碼、SMTP app password、Google secret 不寫入範例檔或文件。
+
+### 驗證與密碼設定信測試
+
+1. 複製 [docs/env.local.example](docs/env.local.example) 為 `.env`，設定本機 DB 與可用 SMTP。若只測流程可先留空 `MAIL_HOST`，系統會退回 PHP `mail()`，但實際寄達需主機 mail 設定可用。
+2. 執行 PHP 語法檢查：`php -l config/app.php`、`php -l app/Core/Mailer.php`、`php -l app/Controllers/MemberController.php`、`php -l app/Controllers/AdminController.php`。
+3. 到 `http://localhost/member-system2/register` 註冊非 Google 會員，確認 API 回傳的開發測試連結與信件內容皆為 `APP_URL` 開頭。
+4. 進入後台新增管理人員，確認管理員啟用信連結為 `APP_URL/admin/setup-password/{token}`。
+5. 在會員編輯頁點擊重新發送信箱驗證，確認信件與開發測試連結為 `APP_URL/verify/{token}`。
+6. 正式環境部署前將 `.env` 改用 [docs/env.production.example](docs/env.production.example) 的值，特別確認 `APP_URL=https://www.newpay.com.tw/member` 與 `MAIL_VERIFY_PEER=true`。
+
+## 資料庫更新
+
+既有本機或正式資料庫若已經建立 `member_stores`，請先備份資料庫，再套用：
+
+```sql
+database/migrations/20260721_add_member_store_advanced_settings.sql
+```
+
+此 migration 會補上商店聯絡市話區碼、API 串接設定、電子發票設定、交易限制與行銷設定欄位；全新安裝可直接使用 [database/schema.sql](database/schema.sql)。
+
 ## 目錄結構
 
 ```

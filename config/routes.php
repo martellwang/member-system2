@@ -32,6 +32,9 @@ $router->post('api/members/logout',       'MemberAuthController', 'logoutApi');
 $router->get('api/members/session-status', 'MemberAuthController', 'sessionStatus');
 $router->post('api/members/session-touch', 'MemberAuthController', 'sessionTouch');
 $router->post('api/members/stores',       'MemberAuthController', 'storeCreate');
+$router->post('api/members/stores/{storeId}/invoice-settings', 'MemberAuthController', 'updateStoreInvoiceSettings');
+$router->post('api/members/stores/{storeId}/transaction-settings', 'MemberAuthController', 'updateStoreTransactionSettings');
+$router->post('api/members/stores/{storeId}/integration-settings', 'MemberAuthController', 'updateStoreIntegrationSettings');
 
 // ── API：後台 ─────────────────────────────────
 $router->post('api/admin/login',          'AdminController',  'login');

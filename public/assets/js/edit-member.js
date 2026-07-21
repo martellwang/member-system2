@@ -247,6 +247,32 @@ function bindAdminStoreManagement() {
     const success = item.querySelector('.admin-store-success');
     const error = item.querySelector('.admin-store-error');
     const errorText = error?.querySelector('span');
+    const tabs = item.querySelectorAll('[data-admin-store-tab]');
+    const panels = item.querySelectorAll('[data-admin-store-panel]');
+    const hint = item.querySelector('[data-admin-store-tab-hint]');
+
+     // 商店管理頁初次載入只顯示列表；個別表單須由使用者點選「管理」展開。
+    if (form) {
+      form.hidden = true;
+      form.setAttribute('hidden', 'hidden');
+    }
+     if (toggle) toggle.textContent = '管理';
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.adminStoreTab;
+        tabs.forEach((candidate) => candidate.classList.toggle('active', candidate === tab));
+        panels.forEach((panel) => { panel.hidden = panel.dataset.adminStorePanel !== target; });
+
+        if (hint) {
+          hint.textContent = target === 'terms'
+            ? '商業條件與支付工具可直接編輯。'
+            : target === 'details'
+              ? '商店基本資料與聯絡地址可直接編輯。'
+              : '此分頁設定會與商店資料一起儲存。';
+        }
+      });
+    });
 
     function showStoreMessage(type, message = '') {
       success?.classList.remove('show');
@@ -263,12 +289,18 @@ function bindAdminStoreManagement() {
 
     toggle?.addEventListener('click', () => {
       form.hidden = !form.hidden;
-      toggle.textContent = form.hidden ? '編輯' : '收合';
+      if (form.hidden) {
+        form.setAttribute('hidden', 'hidden');
+      } else {
+        form.removeAttribute('hidden');
+      }
+       toggle.textContent = form.hidden ? '管理' : '收合';
     });
 
     cancel?.addEventListener('click', () => {
       form.hidden = true;
-      if (toggle) toggle.textContent = '編輯';
+      form.setAttribute('hidden', 'hidden');
+       if (toggle) toggle.textContent = '管理';
     });
 
     form?.addEventListener('submit', async (event) => {
@@ -322,11 +354,29 @@ function syncAdminStoreViewMode() {
   const isStoreView = window.location.hash === '#admin-store-management';
   container.classList.toggle('store-view-mode', isStoreView);
 
+  if (isStoreView) {
+    document.querySelectorAll('[data-admin-store-form]').forEach((form) => {
+      form.hidden = true;
+      form.setAttribute('hidden', 'hidden');
+      const toggle = form.closest('[data-admin-store-item]')?.querySelector('[data-admin-store-toggle]');
+           if (toggle) toggle.textContent = '管理';
+    });
+  }
+
   document.querySelectorAll('[data-member-edit-tab]').forEach((tab) => {
     const tabMode = tab.dataset.memberEditTab;
     tab.classList.toggle('active', tabMode === (isStoreView ? 'stores' : 'profile'));
   });
 }
+
+document.querySelectorAll('[data-member-edit-tab]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    if (tab.dataset.memberEditTab === 'stores') {
+      // 即使目前已在同一個 hash，也要回到商店摘要列表。
+      window.setTimeout(syncAdminStoreViewMode, 0);
+    }
+  });
+});
 
 document.getElementById('member-edit-page-form').addEventListener('submit', async (event) => {
   event.preventDefault();
