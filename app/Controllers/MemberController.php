@@ -60,6 +60,8 @@ class MemberController extends Controller
         );
 
         if (($data['type'] ?? '') === 'personal') {
+            $data['id_number'] = strtoupper(trim((string) ($data['id_number'] ?? '')));
+            $data['gender'] = $this->genderFromTaiwanIdNumber($data['id_number']);
             $data['line_id'] = trim($data['line_id'] ?? '');
             $data['birth_date'] = $this->parseRocDate($data['birth_date'] ?? '');
             $data['id_issue_date'] = $this->parseRocDate($data['id_issue_date'] ?? '');
@@ -81,6 +83,7 @@ class MemberController extends Controller
             $data['id_card_front_path'] = null;
             $data['id_card_back_path'] = null;
             $data['second_id_doc_path'] = null;
+            $data['gender'] = null;
             $data['is_dealer'] = !empty($data['is_dealer']) ? 1 : 0;
         }
 
@@ -329,7 +332,7 @@ class MemberController extends Controller
         $errors = array_merge($errors, TaiwanAddress::validateParts($data));
 
         if ($type === 'personal') {
-            $idno = strtoupper($data['id_number'] ?? '');
+            $idno = strtoupper(trim((string) ($data['id_number'] ?? '')));
             if (!$this->isValidTaiwanIdNumber($idno)) {
                 $errors['id_number'] = '請輸入有效的身分證號（含檢核碼）';
             } elseif (empty($errors['email']) && $this->member->personalIdentityExists($data['email'], $idno)) {
@@ -363,6 +366,16 @@ class MemberController extends Controller
         }
 
         return $errors;
+    }
+
+    private function genderFromTaiwanIdNumber(string $idno): ?string
+    {
+        $idno = strtoupper(trim($idno));
+        return match ($idno[1] ?? '') {
+            '1' => 'male',
+            '2' => 'female',
+            default => null,
+        };
     }
 
     private function isValidTaiwanIdNumber(string $idno): bool

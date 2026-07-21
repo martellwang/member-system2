@@ -336,7 +336,6 @@ async function submitRegister() {
     payload.append('id_issue_place', document.getElementById('f-id-issue-place').value.trim());
     payload.append('id_issue_type', document.getElementById('f-id-issue-type').value);
     payload.append('birth_date', document.getElementById('f-birth').value);
-    payload.append('gender', document.getElementById('f-gender').value);
     payload.append('id_card_front', document.getElementById('f-id-front').files[0]);
     payload.append('id_card_back', document.getElementById('f-id-back').files[0]);
     payload.append('second_id_doc', document.getElementById('f-second-id-doc').files[0]);

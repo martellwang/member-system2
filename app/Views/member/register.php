@@ -167,17 +167,6 @@ $googleSignup = $googleSignup ?? null;
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>性別</label>
-            <select id="f-gender" name="gender">
-              <option value="">請選擇</option>
-              <option value="male">男</option>
-              <option value="female">女</option>
-              <option value="other">不公開</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
             <label>身分證正面電子檔 <span class="required">*</span></label>
             <input type="file" id="f-id-front" name="id_card_front" accept=".jpg,.jpeg,.png,.pdf" />
             <div class="field-hint">支援 JPG、PNG、PDF，單檔上限 5MB</div>
